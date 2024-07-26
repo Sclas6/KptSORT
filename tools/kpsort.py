@@ -224,6 +224,7 @@ class Sort(object):
                 ret.append(np.concatenate((d,[trk.id])).reshape(1,-1)) # +1 as MOT benchmark requires positive
             i -= 1
             # remove dead tracklet
+            # test comment
             if(trk.time_since_update > self.max_age):
                 self.trackers.pop(i)
         for i, trk in enumerate(self.lost_tracks):
