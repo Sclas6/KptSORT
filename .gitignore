@@ -3,3 +3,9 @@ __pycache__/
 sources/
 a.py
 test.*
+*.png
+*.pkl
+*.pickle
+*.mp4
+*.pt
+*.pth
