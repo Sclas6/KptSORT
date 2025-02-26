@@ -56,7 +56,7 @@ color_map = iter(gen_random_colors(10000, 334))
 model = YOLO("best2.pt", task="predict")
 cap = cv2.VideoCapture("sources/v18.mp4")
 
-th = 0.2
+th = 0.2   
 
 fps = cap.get(cv2.CAP_PROP_FPS)
 size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
