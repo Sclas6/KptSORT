@@ -133,14 +133,14 @@ class KalmanKptTracker(object):
         return self.est_x
     
     
-def associate_detections_to_trackers(keypoints,trackers, iou_threshold = 0.8):
+def associate_detections_to_trackers(keypoints,trackers, oks_threshold = 0.8):
     if(len(trackers)==0):
         return np.empty((0,2),dtype=int), np.arange(len(keypoints)), np.empty((0,5),dtype=int)  
     oks_matrix = oks_batch(keypoints, trackers) 
-    print(oks_matrix)
-    print(trackers)
+    #print(oks_matrix)
+    #print(trackers)
     if min(oks_matrix.shape) > 0:
-        a = (oks_matrix > iou_threshold).astype(np.int32)
+        a = (oks_matrix > oks_threshold).astype(np.int32)
         #print(a)
         if a.sum(1).max() == 1 and a.sum(0).max() == 1:
             matched_indices = np.stack(np.where(a), axis=1)
@@ -168,13 +168,13 @@ def associate_detections_to_trackers(keypoints,trackers, iou_threshold = 0.8):
     for t, trk in enumerate(trackers[:,:6]):
         if(t not in matched_indices[:,1]):
             unmatched_trackers.append(t)
-            print(f"{t} Died")    
+            #print(f"{t} Died")    
     matches = []
     for m in matched_indices:
-        if(oks_matrix[m[0], m[1]]<iou_threshold):
+        if(oks_matrix[m[0], m[1]]<oks_threshold):
             unmatched_detections.append(m[0])
             unmatched_trackers.append(m[1])
-            print(f"{m[1]} Died")
+            #print(f"{m[1]} Died")
         else:
             matches.append(m.reshape(1,2))
     if(len(matches)==0):
@@ -185,18 +185,18 @@ def associate_detections_to_trackers(keypoints,trackers, iou_threshold = 0.8):
 
 
 class Sort(object):
-    def __init__(self, max_age=1, min_hits=3, iou_threshold=0.3):
+    def __init__(self, max_age=0, min_hits=3, oks_threshold=0.3):
         """
         Sets key parameters for SORT
         """
         self.max_age = max_age
         self.min_hits = min_hits
-        self.iou_threshold = iou_threshold
+        self.oks_threshold = oks_threshold
         self.trackers = []
         self.frame_count = 0
         self.lost_tracks = []
 
-    def update(self, kpts=np.empty((0, 3)), desirable2removes=[], th=0.4):
+    def update(self, kpts=np.empty((0, 3)), desirable2removes=[], oks_threshold=0.4):
         """kpts - [[x1, y1, x2, y2, x3, y3],...]"""
         self.frame_count += 1
         # get predicted locations from existing trackers.
@@ -223,7 +223,7 @@ class Sort(object):
                 else:
                     removes.append(pair_d2r[np.where(okses==min(okses))[0][0]])
             kpts = np.delete(kpts, removes, 0)
-        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(kpts, trks, self.iou_threshold)
+        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(kpts, trks, self.oks_threshold)
         
         # respawn tracker
         for i in unmatched_trks:
@@ -241,12 +241,13 @@ class Sort(object):
             if len(self.lost_tracks) != 0:
                 for j in range(len(self.lost_tracks)):
                     score = oks(self.lost_tracks[j][0].get_state()[:NUM_KPTS * 2 + 1], kpts[i, :7], SIGMA)
-                    if score >= th:
+                    if score >= oks_threshold:
                         #print(score)
                         self.trackers.append(self.lost_tracks[j][0])
                         self.trackers[-1].update(kpts[i, :7])
                         #print(self.lost_tracks[j].id)
                         self.lost_tracks.pop(j)
+                        #print(f"Restored: {self.lost_tracks[j][0].get_state()} -> {kpts[i, :7]}")
                         break
                     if j == len(self.lost_tracks) - 1:
                         trk = KalmanKptTracker(kpts[i,:])

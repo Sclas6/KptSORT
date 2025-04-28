@@ -7,7 +7,7 @@ from tools.calk_oks import oks
 import cv2
 
 BODYPARTS = 3
-INDIVISUALS = 14
+INDIVISUALS = 20
 
 def check_overlap(kpts:list, indivisuals:list, threshould, raw: bool=True):
     if raw:
@@ -76,7 +76,12 @@ def pkl2setlist(pkl: dict, frame: int) -> set:
     return parts
 
 def take_difference(parts_raw: list, data_csv, frame: int):
+    """
+    parts_raw: [{x, y, p}: head, {x, y, p}: body, {x, y, p}: sting]
+    """
+    # indivisual have full body kpts
     parts_full = [set(), set(), set()]
+    # full kpts
     parts_diff = copy.deepcopy(parts_raw)
     indivisuals = np.zeros((len(data_csv[frame]), 7))
     for i, part in enumerate(data_csv[frame]):
@@ -92,7 +97,6 @@ def take_difference(parts_raw: list, data_csv, frame: int):
         for kpt in part:
             if kpt[2] < 0.8:
                 parts_diff[i].remove(kpt)
-    #print(parts_diff)
     return parts_diff, indivisuals
 
 def kpt_in_bbox(kpt, xyxy, margin):
@@ -111,28 +115,41 @@ def gen_random_colors(length: int, seed: int):
 def assemble_w_yolo(model, frame, data_pkl, data_csv, threshould, id_frame):
     parts_raw = pkl2setlist(data_pkl, id_frame)
     parts_diff, individuals = take_difference(parts_raw, data_csv, id_frame)
-    #print(individuals)
     results = model.predict(frame, device = 0, conf = 0.1, verbose=False)
     bboxes = [result.boxes.xyxy[0].tolist() for result in results[0]]
-    for individual in data_csv[id_frame]:
+
+    for i, individual in enumerate(data_csv[id_frame]):
+        """
         for kpt in individual:
             for bbox in bboxes:
                 if kpt_in_bbox(kpt, bbox, 0):
                     bboxes.remove(bbox)
                     break
+        """
+        for bbox in bboxes:
+            for individusl in data_csv[id_frame]:
+                rm = 0
+                for kpt in individual:
+                    if kpt_in_bbox(kpt, bbox, 0):
+                        rm += 1
+                if rm == 3:
+                    bboxes.remove(bbox)
+                    break
+        #"""
+
     for bbox in bboxes:
         #individual = np.full((3, 2), 0)
         individual = np.full((7, ), np.nan)
-        for i, part in enumerate(parts_diff):
+        for i, part in enumerate(copy.deepcopy(parts_diff)):
             for kpt in part:
-                if kpt_in_bbox(kpt, bbox, 0):
+                if kpt_in_bbox(kpt, bbox, 5):
                     individual[i * 2] = kpt[0]
                     individual[i * 2 + 1] = kpt[1]
+                    parts_diff[i].remove(kpt)
         mask_list = np.where(np.isnan(individual[:6]), 1, 0)
         individual[6] = int("".join([f"{c}" for c in mask_list.tolist()]), 2)
         if not np.all(np.isnan(individual[:6])):
             if check_overlap(individual, individuals, threshould, False):
-            #if True:
                 individuals = np.concatenate([individuals, [individual]])
                 pass
     #print(individuals)

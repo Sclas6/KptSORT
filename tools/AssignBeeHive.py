@@ -111,7 +111,7 @@ class AssignBeeHive():
 
         bar_sam = tqdm(total=1, desc="%-15s" % ("Preparing Mask Data"))
         if not os.path.exists(f"{self.dir}result.pickle"):
-            sam = sam_model_registry["default"](checkpoint="sam_vit_h_4b8939.pth")
+            sam = sam_model_registry["default"](checkpoint="sources/Models/sam_vit_h_4b8939.pth")
             sam.to(device="cuda")
             mask_generator = SamAutomaticMaskGenerator(model=sam, points_per_side=pps, crop_n_layers=cnl)
             masks = mask_generator.generate(img)
@@ -175,8 +175,12 @@ class AssignBeeHive():
     def gen_mask_w_samHQ(self):
         pass
     
-    def pos2id(self, pos: tuple):
-        generated_img = cv2.imread(f"{self.dir}result_pps{self.config_sam[0]}_cnl{self.config_sam[1]}_{self.mode_binarize}.png")
+    def pos2id(self, pos: tuple, img=None):
+        if img is None:
+            generated_img = cv2.imread(f"{self.dir}result_pps{self.config_sam[0]}_cnl{self.config_sam[1]}_{self.mode_binarize}.png")
+        else:
+            generated_img = img
+            
         x, y = pos
         img_h = generated_img.shape[0]
         img_w = generated_img.shape[1]
