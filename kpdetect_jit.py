@@ -2,18 +2,20 @@ import os
 os.chdir("/kpsort")
 import cv2
 from tools.kpsort import Sort
-from tools.loadpkl import *
+from tools.loadpkl_jit import *
 from tools.AssignBeeHive import AssignBeeHive
 from ultralytics import YOLO
 import numpy as np
 import pickle
 import math
-import pandas as pd
 from tqdm import tqdm
 from numba import njit
 import matplotlib.pyplot as plt
+import japanize_matplotlib
 import seaborn as sns
+from collections import deque
 
+"""
 class Counter():
     def __init__(self):
         self.c = 0
@@ -57,34 +59,44 @@ class Counter():
                 self.exchanged_w_id[exchanged_w_id[0]][exchanged_w_id[1]] += exchanged_w_id[2]
         if hived_series != None: self.hived_counter_series[hived_series[0]] += hived_series[1]
         if exchanged_series != None: self.exchanged_counter_series[exchanged_series[0]] += exchanged_series[1]
-
+"""
 class Bee():
+    hived_series: np.ndarray
+    exchanged_series: np.ndarray
+    distances: np.ndarray
     def __init__(self, id: int, pos: tuple, length: int=10):
         self.id = id
         self.age = 0
         self.distance = 0
         self.length = length
         self.pos = pos
-        self.trajectory = pd.DataFrame({"y": [pos[0]], "x": [pos[1]]})
+        #self.trajectory = pl.DataFrame({"y": [pos[0]], "x": [pos[1]]})
+        self.trajectory_deque = deque([np.array(pos)], maxlen=length)
+
+        self.tracked_frames = 0
+        self.care_frames = 0
+        self.feeding_hives = dict()
+        self.exchanged_frames = 0
+        self.exchanging = dict()
     
     def update(self, pos):
-        self.trajectory = pd.concat([self.trajectory, pd.DataFrame({"y": [pos[0]], "x": [pos[1]]})], axis=0)
-        self.trajectory = self.trajectory.reset_index(drop=True)
+        """
+        self.trajectory = pl.concat([self.trajectory, pl.DataFrame({"y": [pos[0]], "x": [pos[1]]})])
         if len(self.trajectory) > self.length:
-            self.trajectory = self.trajectory.drop(index=0)
-        self.trajectory = self.trajectory.reset_index(drop=True)
+            self.trajectory = self.trajectory[1:]
         self.age += 1
-        self.distance += math.dist(pos, self.pos)
+        self.distance += math.dist(pos, self.pos) / 44
+        self.pos = pos
+        """
+        self.trajectory_deque.append(np.array(pos)) # posをNumPy配列に変換して格納
+        self.age += 1
+        self.distance = math.dist(pos, self.pos) / 44
         self.pos = pos
         
     def draw_trajectory(self, frame, color=(0,0,255)):
-        for i, row in self.trajectory.iloc[::-1].iterrows():
-            if i != 0:
-                pt1 = (row["y"], row["x"])
-                pt2 = (self.trajectory.at[i-1, "y"], self.trajectory.at[i-1, "x"])
-                cv2.line(frame, pt1, pt2, color, 5)
-                #print(f"draw: {pt1} to {pt2}")
-    
+        #cv2.polylines(frame, [self.trajectory.to_numpy()], False, color, 5)
+        points = np.array(self.trajectory_deque).reshape(-1, 1, 2).astype(np.int32)
+        cv2.polylines(frame, [points], False, color, 5)
 
 def check_overlap_2(individuals, threshold: int):
     fulls_sorted = list()
@@ -157,62 +169,81 @@ def mark_losted_trackers(frame, trackers, ids_prev:tuple, losted: dict):
         cv2.putText(frame, f"{l[-1]}(DEAD)", (l[0], l[1]), cv2.FONT_HERSHEY_PLAIN, 5, (255, 255, 255), 1, cv2.LINE_AA)
     return frame, losted
     
-def gen_graphs(counter: Counter, colors: dict, path_out: str):
-    print(counter.trajectories)
+def gen_graphs(frames, bees: dict, colors: dict, path_out: str, th_frames: int=125):
+    """
     with open(f'{path_out}hived_counter.pkl', mode='wb') as fo:
         pickle.dump(counter.care_counter, fo)
+    """
     #print(([str(k) for k, v in counter.cared_counter.items() if v > 10], [v for v in counter.cared_counter.values() if v > 10]))
     #plt.bar([str(k) for k, v in counter.cared_counter.items() if v > 10], [v for v in counter.cared_counter.values() if v > 10])
     cared_counter_sum = dict()
-    for v in counter.cared_counter.values():
+    for id in bees:
         #{hive_id: count, ...}
-        for hive_id, count in v.items():
+        for hive_id, count in bees[id].feeding_hives.items():
             if hive_id not in cared_counter_sum.keys():
                 cared_counter_sum[hive_id] = 0
             cared_counter_sum[hive_id] += count
     #print(([str(k) for k, v in cared_counter_sum.items() if v != 0], [v for v in cared_counter_sum.values() if v != 0]))
-    elements = [k for k, v in cared_counter_sum.items() if v > 125]
-    print(counter.cared_counter)
-    for i, key in enumerate(counter.cared_counter):
+    elements = [k for k, v in cared_counter_sum.items() if v > 0]
+    for i, id in enumerate(bees):
+        bee: Bee = bees[id]
+        if i == 0:
+            plt.bar([str(k) for k in bee.feeding_hives.keys() if k in elements], [v for k, v in bee.feeding_hives.items() if k in elements], color=(colors[bee.id][0]/255,colors[bee.id][1]/255,colors[bee.id][2]/255))
+        else:
+            plt.bar([str(k) for k in bee.feeding_hives.keys() if k in elements], [v for k, v in bee.feeding_hives.items() if k in elements], bottom=[v for k, v in bees[i - 1].feeding_hives.items() if k in elements], color=(colors[bee.id][0]/255,colors[bee.id][1]/255,colors[bee.id][2]/255))
+    """
         if i == 0:
             plt.bar([str(k) for k in counter.cared_counter[key].keys() if k in elements], [v for k, v in counter.cared_counter[key].items() if k in elements], color=(colors[key][0]/255,colors[key][1]/255,colors[key][2]/255))
         else:
             plt.bar([str(k) for k in counter.cared_counter[key].keys() if k in elements], [v for k, v in counter.cared_counter[key].items() if k in elements], bottom=[v for k, v in counter.cared_counter[list(counter.cared_counter.keys())[i - 1]].items() if k in elements], color=(colors[key][0]/255,colors[key][1]/255,colors[key][2]/255))
+    """
     plt.savefig(f"{path_out}hived_counter.png")
     plt.cla()
-    counter.trajectories = sorted(counter.trajectories.items(), key=lambda x:x[1])
-    plt.barh([str(i[0]) for i in counter.trajectories], [i[1] for i in counter.trajectories])
+    trajectories = {bee.id: bee.distance for bee in bees.values()}
+    trajectories = sorted(trajectories.items(), key=lambda x:x[1])
+    plt.barh([str(i[0]) for i in trajectories], [i[1] for i in trajectories])
+    plt.title(f"総移動距離: {np.sum(Bee.distances)}cm")
+    plt.suptitle(f"平均移動距離: {np.mean(Bee.distances[:frames])}cm")
     plt.savefig(f"{path_out}trajectories.png")
     plt.cla()
+    plt.suptitle("")
+
+    plt.plot([i for i in range(frames)], Bee.distances[:frames])
+    plt.savefig(f"{path_out}trajectories_series.png")
+    plt.cla()
+
+
     #print(counter.ids_counter)
-    counter.exchanged_w_id = {k: v for k, v in counter.exchanged_w_id.items() if counter.ids_counter[str(int(k))] > 850}
-    exchanged_map = np.zeros((int(max(counter.exchanged_w_id.keys())) + 1, int(max(counter.exchanged_w_id.keys())) + 1))
-    for i in counter.exchanged_w_id.keys():
-        for j in counter.exchanged_w_id[i]:
-            exchanged_map[int(i)][int(j)] = counter.exchanged_w_id[i][j]
-    counter.ids_counter = {k: v for k, v in counter.ids_counter.items() if v > 850}
-    plt.bar(counter.ids_counter.keys(), counter.ids_counter.values())
+    exchanged_map = np.zeros((len(bees) + 1, len(bees) + 1))
+    for id1 in bees:
+        bee1: Bee = bees[id1]
+        for id2 in bee1.exchanging:
+            if bee1.exchanging[id2] > 0:
+                exchanged_map[id1][int(id2)] = bee1.exchanging[int(id2)]
+
+    ids_counter = {str(bee.id): bee.tracked_frames for bee in bees.values() if bee.tracked_frames > th_frames}
+    plt.bar(ids_counter.keys(), ids_counter.values())
     plt.savefig(f"{path_out}trackrets.png")
     plt.cla()
-    plt.plot(counter.hived_counter_series.keys(), counter.hived_counter_series.values())
+    plt.plot([i for i in range(frames)], Bee.hived_series[:frames])
     
     ratio_sum = 0
-    for i in counter.ids_counter.keys():
-        ratio = counter.ids_counter[i] / counter.c
+    for i in ids_counter.keys():
+        ratio = ids_counter[i] / frames
         ratio_sum += ratio
-    avg_ratio = ratio_sum / len(counter.ids_counter.keys())
+    avg_ratio = ratio_sum / len(ids_counter.keys())
     print(f"AVG: {avg_ratio}")
     
     plt.savefig(f"{path_out}hived_series.png")
     plt.cla()
-    plt.plot(counter.exchanged_counter_series.keys(), counter.exchanged_counter_series.values())
+    plt.plot([i for i in range(frames)], Bee.exchanged_series[:frames])
     plt.savefig(f"{path_out}exchanged_series.png")
     plt.cla()
     sns.heatmap(exchanged_map, cmap='Blues')
     plt.savefig(f"{path_out}exchanged_map.png")
 
 #@njit
-def detect_trophallaxis(d, trackers, counter: Counter, fps=18):
+def detect_trophallaxis(d, trackers, bees: dict, fps=18):
     d_exchange = False
     if d[6] in [0, 3, 12]:
         d_head = np.array([d[0], d[1]])
@@ -223,41 +254,34 @@ def detect_trophallaxis(d, trackers, counter: Counter, fps=18):
                 rad = np.linalg.norm(calc_unit_vector(d) + calc_unit_vector(d2))
                 # !! MAGIC NUMBER 1.1, 1.5
                 if r < (calc_ava_length(trackers) / 1.1) and rad < 1.5:
-                    if str(d[-1]) not in counter.exchanged_counter:
-                        counter.update(exchanged=(str(d[-1]), 1))
-                    else:
-                        counter.inc(exchanged=(str(d[-1]), 1))
-                    if counter.exchanged_counter[str(d[-1])] > fps:
+                    bees[d[-1]].exchanged_frames += 1
+                    if bees[d[-1]].exchanged_frames > fps:
                         d_exchange = True
-                        counter.inc(exchanged_series=(counter.c, 1))
-                        if d2[-1] not in counter.exchanged_w_id[d[-1]]:
-                            counter.update(exchanged_w_id=(d[-1], d2[-1], 1))
+                        if d2[-1] not in bees[d[-1]].exchanging:
+                            bees[d[-1]].exchanging[d2[-1]] = 1
                         else:
-                            counter.inc(exchanged_w_id=(d[-1], d2[-1], 1))
+                            bees[d[-1]].exchanging[d2[-1]] += 1
     return d_exchange
 
-def detect_caring(d, frame, mask, hive: AssignBeeHive, img, counter: Counter, fps=18):
+#@njit
+def detect_caring(d, mask, hive: AssignBeeHive, img, bee: Bee, fps=18):
     d_caring = False
     if mask[0] == '1':
-        dur = fps * 5
+        dur = fps * 1
         
-        if d[-1] not in counter.care_counter:
-            counter.update(care=(d[-1], 1))
-        else:
-            counter.inc(care=(d[-1], 1))
-            cv2.putText(frame, f"@{hive.pos2id((d[2], d[2 + 1]), img)}", (d[0], d[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d[-1]], 1, cv2.LINE_AA)
-        if counter.care_counter[d[-1]] > dur:
+        bee.care_frames += 1
+        if bee.care_frames > dur:
             """if counter.hived_counter_series[counter.c - 1] == 0:
                 for cc in range(int(dur)):
                     if counter.c - int(dur) + cc >= 0:
                         counter.inc(hived_series=(counter.c-int(dur)+cc, 1))"""
             #cv2.putText(frame, "!!!", (d[4], d[5]), cv2.FONT_HERSHEY_PLAIN, 5.0, colors[d[-1]], 5, cv2.LINE_AA)
             d_caring = True
-            counter.cared_counter[d[-1]][hive.pos2id((d[2], d[2 + 1]))] += 1
+            bee.feeding_hives[hive.pos2id((d[2], d[2 + 1]))] += 1
             #counter.inc(cared=(hive.pos2id((d[2], d[2 + 1])), 1), hived_series=(counter.c, 1))
     else:
-        if str(d[-1]) in counter.care_counter:
-            counter.update(care=(d[-1], 0))
+        bee.care_frames = 0
+        
     return d_caring, frame
 
 
@@ -281,6 +305,7 @@ th = 0.2
 
 fps = cap.get(cv2.CAP_PROP_FPS)
 size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
 video = cv2.VideoWriter(f"output/videos/{th}_0703.mp4",fourcc, fps, size)
 
@@ -291,7 +316,7 @@ ids_prev = None
 losted = dict()
 
 mot_tracker = Sort(oks_threshold=0.00001)
-counter = Counter()
+#counter = Counter()
 bees = dict()
 
 with open("hive_2.pkl", "rb") as f:
@@ -299,21 +324,21 @@ with open("hive_2.pkl", "rb") as f:
     #counter.cared_counter = {h.id: 0 for h in hive.hives}
 
 data_raw = list()
-for i, k in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
+for i, _ in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
     if i > 0:
         data_raw.append(pkl2setlist(data_pkl, i - 1))
 
-prog = tqdm(desc="Generating", total=cap.get(cv2.CAP_PROP_FRAME_COUNT))
+Bee.exchanged_series = np.zeros((frames))
+Bee.hived_series = np.zeros((frames))
+Bee.distances = np.zeros((frames))
+
+c = 0
+prog = tqdm(desc="Generating", total=frames)
 while True:
     success, frame = cap.read()
-    counter.update(hived_series=(counter.c, 0), exchanged_series=(counter.c, 0))
     
-    if counter.c > 8100:
-        counter.update(ids=dict((x, y) for x, y in sorted(counter.ids_counter.items())))
-        plt.bar(counter.ids_counter.keys(), counter.ids_counter.values())
-        plt.savefig(f"output/figure/trackrets_{th}.png")
-        plt.cla()
-        gen_graphs(counter, colors, "output/graphs/")
+    if c > 250:
+        gen_graphs(c, bees, colors, "output/graphs/", 0)
         for bee in bees.values():
             #print(f"{bee.id}: {bee.distance}")
             pass
@@ -322,16 +347,16 @@ while True:
         
         break
     if success:
-        individuals, _ = assemble_w_yolo(model, frame, data_raw[counter.c], data_csv[counter.c], th)
-        #_, individuals = take_difference(data_raw[counter.c], data_csv[counter.c])
-        cv2.putText(frame, str(counter.c), (100, 100), cv2.FONT_HERSHEY_PLAIN, 5, (255, 255, 255), 1, cv2.LINE_AA)
+        results = model.predict(frame, device=0, conf=0.45, verbose=False)
+        rects = results[0].obb.xyxyxyxy.to('cpu').detach().numpy().copy()
+        individuals = assemble_w_yolo(rects, data_raw[c], data_csv[c], th)
+        cv2.putText(frame, str(c), (100, 100), cv2.FONT_HERSHEY_PLAIN, 5, (255, 255, 255), 1, cv2.LINE_AA)
         desirable2remove = check_overlap_2(individuals, 0.5)
         
         for individual in individuals:
             for i in range(0, len(individual) - 1, 2):
                 if math.isnan(individual[i]): continue
                 cv2.circle(frame, (int(individual[i]), int(individual[i + 1])), 5, (0, 255, 0), 5)
-
         trackers = mot_tracker.update(individuals, desirable2remove, th)
         #trackers = []
         """
@@ -339,25 +364,22 @@ while True:
             frame, losted = mark_losted_trackers(frame, trackers, ids_prev, losted)
         """
         pred_ids = [d[-1] for d in trackers]
-        for d in trackers:
-            if d[-1] not in counter.exchanged_w_id:
-                counter.update(exchanged_w_id=(d[-1], dict()))
         #print(([str(k) for k, v in counter.cared_counter.items() if v != 0], [v for v in counter.cared_counter.values() if v != 0]))
                 
         for d in trackers:
             d = d.astype(np.int32)
             if d[-1] not in colors:
                 colors[d[-1]] = next(color_map)
-            if str(d[-1]) not in counter.ids_counter:
-                counter.update(ids=(str(d[-1]), 1))
-            else:
-                counter.inc(ids=(str(d[-1]), 1))
+
+            if d[-1] not in bees:
+                bees[d[-1]] = Bee(id=d[-1], pos=(d[0], d[1]), length=200)
+                bees[d[-1]].feeding_hives = {h.id: 0 for h in hive.hives}
+            bees[d[-1]].tracked_frames += 1
+
             mask = str(bin(int(d[6])))[2:].zfill(6)
-            if d[-1] not in counter.cared_counter.keys():
-                counter.cared_counter[d[-1]] = {h.id: 0 for h in hive.hives}
-            d_exchange = detect_trophallaxis(d, trackers, counter, fps)          
+            d_exchange = detect_trophallaxis(d, trackers, bees, fps)          
             #d_exchange = False 
-            d_caring, _ = detect_caring(d, frame, mask, hive, img_hive_sam, counter, fps)
+            d_caring, _ = detect_caring(d, mask, hive, img_hive_sam, bees[d[-1]], fps)
             #print([v for v in counter.cared_counter[d[-1]].values() if v != 0])
             #d_caring = False
 
@@ -377,20 +399,26 @@ while True:
             cv2.putText(frame, str(d[-1]), (d[0], d[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d[-1]], 1, cv2.LINE_AA)
             if d_caring:
                 cv2.circle(frame, (d[4], d[5]), 10, (0, 0, 255), 10)
+                Bee.hived_series[c] += 1
             if d_exchange:
                 cv2.circle(frame, (d[0], d[1]), 10, (0, 255, 0), 10)
-            if d[-1] not in bees:
-                bees[d[-1]] = Bee(id=d[-1], pos=(d[0], d[1]), length=200)
+                Bee.exchanged_series[c] += 1
             else:
                 bees[d[-1]].update(pos=(d[0], d[1]))
                 bees[d[-1]].draw_trajectory(frame, colors[d[-1]])
-        
-        counter.trajectories = {k: v.distance for k, v in bees.items()}
+            Bee.distances[c] += bees[d[-1]].distance
+        """
+        print(np.sum(Bee.exchanged_series))  
+        print(np.sum(Bee.hived_series))
+        print(np.sum(Bee.distances))
+        print()
+        """
+        #counter.trajectories = {k: v.distance for k, v in bees.items()}
         #ids_prev = (set(trackers[:, -1]), trackers)
                 
-        counter.inc(c=1)
+        c += 1
         prog.update(1)
         video.write(frame)
     else: 
-        gen_graphs(counter, colors, "output/graphs/")
+        gen_graphs(c, bees, colors, "output/graphs/", 5)
         break

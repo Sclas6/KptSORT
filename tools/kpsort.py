@@ -6,6 +6,7 @@ import numpy as np
 from pykalman import KalmanFilter
 from scipy.optimize import linear_sum_assignment
 from tools.calk_oks import oks
+from numba import njit
 
 np.random.seed(0)
 
@@ -20,7 +21,7 @@ def linear_assignment(cost_matrix):
         x, y = linear_sum_assignment(cost_matrix)
         return np.array(list(zip(x, y)))
 
- 
+@njit
 def oks_batch(indivisuals_test, indivisuals_gt):
     o = np.zeros((len(indivisuals_test), len(indivisuals_gt)))
     for i, kpts_test in enumerate(indivisuals_test):
@@ -31,7 +32,19 @@ def oks_batch(indivisuals_test, indivisuals_gt):
     #print(o)
     return o
 
+def fill_masked(kpts):
+    for i in range(0, len(kpts) - 1, 2):
+        if not np.ma.is_masked(kpts[i]):
+            x = kpts[i]
+            y = kpts[i + 1]
+            break
+    for i in range(len(kpts) - 1):
+        if np.ma.is_masked(kpts[i]):
+            if i % 2 == 0: kpts[i] = x
+            else: kpts[i] = y
+    return kpts
 
+@njit
 def fill_nan(kpts):
     for i in range(0, len(kpts) - 1, 2):
         if not math.isnan(kpts[i]):
@@ -96,7 +109,7 @@ class KalmanKptTracker(object):
         self.est_x, self.est_p = self.kf.filter_update(self.est_x, self.est_p, obs)
         self.est_x[NUM_KPTS * 2] = obs[NUM_KPTS * 2]
         if self.est_x[6] != 0:
-            self.est_x[:7] = fill_nan(obs)
+            self.est_x[:7] = fill_masked(obs)
         """if self.est_x[6] != 0:
             for i, m in enumerate(mask_obs):
                 if m != "1":
@@ -132,7 +145,7 @@ class KalmanKptTracker(object):
         #return self.est_x[:NUM_KPTS * 2 + 1]
         return self.est_x
     
-    
+
 def associate_detections_to_trackers(keypoints,trackers, oks_threshold = 0.8):
     if(len(trackers)==0):
         return np.empty((0,2),dtype=int), np.arange(len(keypoints)), np.empty((0,5),dtype=int)  
@@ -242,12 +255,9 @@ class Sort(object):
                 for j in range(len(self.lost_tracks)):
                     score = oks(self.lost_tracks[j][0].get_state()[:NUM_KPTS * 2 + 1], kpts[i, :7], SIGMA)
                     if score >= oks_threshold:
-                        #print(score)
                         self.trackers.append(self.lost_tracks[j][0])
                         self.trackers[-1].update(kpts[i, :7])
-                        #print(self.lost_tracks[j].id)
                         self.lost_tracks.pop(j)
-                        #print(f"Restored: {self.lost_tracks[j][0].get_state()} -> {kpts[i, :7]}")
                         break
                     if j == len(self.lost_tracks) - 1:
                         trk = KalmanKptTracker(kpts[i,:])

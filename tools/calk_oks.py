@@ -1,6 +1,7 @@
 import torch
 import math
 import numpy as np
+from numba import jit
 
 def kpt2area(kpt_gt: list):
     list_x = [xy[0] for xy in kpt_gt if not math.isnan(xy[0])]
@@ -13,20 +14,34 @@ def center(kpt_gt: list):
     list_y = [xy[1] for xy in kpt_gt if xy is not None]
     return (int((min(list_x) + max(list_x)) / 2) + 20, int((min(list_y) + max(list_y)) / 2))
 
-def oks(gt_kpts: list, pred_kpts: list, sigma):
+@jit(nopython=True, cache=True)
+def bin2(n: int) -> list:
+    result = []
+    while True:
+        result.append(int(n % 2))
+        n /= 2
+        if n <= 1: break
+    while True:
+        if len(result) == 6:
+            break
+        result.append(0)
+    return result[::-1]
+
+@jit(nopython=True, cache=True)
+def oks(gt_kpts: list, pred_kpts: list, sigma) -> float:
     gt_kpts_m = []
     pred_kpts_m = []
-    mask_gt = str(bin(int(gt_kpts[6])))[2:].zfill(6)
-    mask_pred = str(bin(int(pred_kpts[6])))[2:].zfill(6)
+    mask_gt = bin2(gt_kpts[6])
+    #mask_pred = str(bin(int(pred_kpts[6])))[2:].zfill(6)
     for i in range(0, len(gt_kpts) - 1, 2):
-        if mask_gt[i] == "0":
+        if mask_gt[i] == 0:
             gt_kpts_m.append([gt_kpts[i], gt_kpts[i + 1]])
         else:
             gt_kpts_m.append([np.nan, np.nan])
     for i in range(0, len(gt_kpts) - 1, 2):
         pred_kpts_m.append([pred_kpts[i], pred_kpts[i + 1]])
     oks = 0
-    epsilon = torch.finfo(torch.float32).eps
+    epsilon = np.finfo(np.float32).eps
 
     top = 0
     bottom = 0

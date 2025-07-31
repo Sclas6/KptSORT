@@ -2,7 +2,7 @@ import os
 os.chdir("/kpsort")
 import cv2
 from tools.kpsort import Sort
-from tools.loadpkl import *
+from tools.loadpkl_jit import *
 from tools.AssignBeeHive import AssignBeeHive
 from ultralytics import YOLO
 import numpy as np
@@ -172,7 +172,6 @@ def gen_graphs(counter: Counter, colors: dict, path_out: str):
             cared_counter_sum[hive_id] += count
     #print(([str(k) for k, v in cared_counter_sum.items() if v != 0], [v for v in cared_counter_sum.values() if v != 0]))
     elements = [k for k, v in cared_counter_sum.items() if v > 125]
-    print(counter.cared_counter)
     for i, key in enumerate(counter.cared_counter):
         if i == 0:
             plt.bar([str(k) for k in counter.cared_counter[key].keys() if k in elements], [v for k, v in counter.cared_counter[key].items() if k in elements], color=(colors[key][0]/255,colors[key][1]/255,colors[key][2]/255))
@@ -299,16 +298,15 @@ with open("hive_2.pkl", "rb") as f:
     #counter.cared_counter = {h.id: 0 for h in hive.hives}
 
 data_raw = list()
-for i, k in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
+for i, _ in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
     if i > 0:
         data_raw.append(pkl2setlist(data_pkl, i - 1))
 
 prog = tqdm(desc="Generating", total=cap.get(cv2.CAP_PROP_FRAME_COUNT))
 while True:
     success, frame = cap.read()
-    counter.update(hived_series=(counter.c, 0), exchanged_series=(counter.c, 0))
     
-    if counter.c > 8100:
+    if counter.c > 8500:
         counter.update(ids=dict((x, y) for x, y in sorted(counter.ids_counter.items())))
         plt.bar(counter.ids_counter.keys(), counter.ids_counter.values())
         plt.savefig(f"output/figure/trackrets_{th}.png")
@@ -322,8 +320,10 @@ while True:
         
         break
     if success:
-        individuals, _ = assemble_w_yolo(model, frame, data_raw[counter.c], data_csv[counter.c], th)
-        #_, individuals = take_difference(data_raw[counter.c], data_csv[counter.c])
+        results = model.predict(frame, device=0, conf=0.45, verbose=False)
+        rects = results[0].obb.xyxyxyxy.to('cpu').detach().numpy().copy()
+        individuals = assemble_w_yolo(rects, data_raw[counter.c], data_csv[counter.c], th)
+
         cv2.putText(frame, str(counter.c), (100, 100), cv2.FONT_HERSHEY_PLAIN, 5, (255, 255, 255), 1, cv2.LINE_AA)
         desirable2remove = check_overlap_2(individuals, 0.5)
         
@@ -331,66 +331,14 @@ while True:
             for i in range(0, len(individual) - 1, 2):
                 if math.isnan(individual[i]): continue
                 cv2.circle(frame, (int(individual[i]), int(individual[i + 1])), 5, (0, 255, 0), 5)
-
         trackers = mot_tracker.update(individuals, desirable2remove, th)
-        #trackers = []
-        """
-        if counter.c != 0:
-            frame, losted = mark_losted_trackers(frame, trackers, ids_prev, losted)
-        """
-        pred_ids = [d[-1] for d in trackers]
-        for d in trackers:
-            if d[-1] not in counter.exchanged_w_id:
-                counter.update(exchanged_w_id=(d[-1], dict()))
-        #print(([str(k) for k, v in counter.cared_counter.items() if v != 0], [v for v in counter.cared_counter.values() if v != 0]))
                 
         for d in trackers:
             d = d.astype(np.int32)
             if d[-1] not in colors:
                 colors[d[-1]] = next(color_map)
-            if str(d[-1]) not in counter.ids_counter:
-                counter.update(ids=(str(d[-1]), 1))
-            else:
-                counter.inc(ids=(str(d[-1]), 1))
-            mask = str(bin(int(d[6])))[2:].zfill(6)
-            if d[-1] not in counter.cared_counter.keys():
-                counter.cared_counter[d[-1]] = {h.id: 0 for h in hive.hives}
-            d_exchange = detect_trophallaxis(d, trackers, counter, fps)          
-            #d_exchange = False 
-            d_caring, _ = detect_caring(d, frame, mask, hive, img_hive_sam, counter, fps)
-            #print([v for v in counter.cared_counter[d[-1]].values() if v != 0])
-            #d_caring = False
 
-            for i in range(0, len(d[:3 * 2 + 1]), 2):
-                if i > 4: break
-                if mask[i] != "1":
-                    cv2.circle(frame, (d[i], d[i + 1]), 4, colors[d[-1]], 4)
-                    """if not hived:
-                        cv2.putText(frame, f"@{hive.pos2id((d[i], d[i + 1]))}", (d[0], d[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d[7]], 1, cv2.LINE_AA)
-                        hived = True
-                    if i == 0:
-                        cv2.putText(frame, "head", (d[i], d[i + 1]), cv2.FONT_HERSHEY_PLAIN, 3, colors[d[7]], 1, cv2.LINE_AA)
-                    if i == 2:
-                        cv2.putText(frame, "onaka", (d[i], d[i + 1]), cv2.FONT_HERSHEY_PLAIN, 3, colors[d[7]], 1, cv2.LINE_AA)
-                    if i == 4:
-                        cv2.putText(frame, "Sting", (d[i], d[i + 1]), cv2.FONT_HERSHEY_PLAIN, 3, colors[d[7]], 1, cv2.LINE_AA)"""
-            cv2.putText(frame, str(d[-1]), (d[0], d[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d[-1]], 1, cv2.LINE_AA)
-            if d_caring:
-                cv2.circle(frame, (d[4], d[5]), 10, (0, 0, 255), 10)
-            if d_exchange:
-                cv2.circle(frame, (d[0], d[1]), 10, (0, 255, 0), 10)
-            if d[-1] not in bees:
-                bees[d[-1]] = Bee(id=d[-1], pos=(d[0], d[1]), length=200)
-            else:
-                bees[d[-1]].update(pos=(d[0], d[1]))
-                bees[d[-1]].draw_trajectory(frame, colors[d[-1]])
-        
-        counter.trajectories = {k: v.distance for k, v in bees.items()}
-        #ids_prev = (set(trackers[:, -1]), trackers)
                 
         counter.inc(c=1)
         prog.update(1)
         video.write(frame)
-    else: 
-        gen_graphs(counter, colors, "output/graphs/")
-        break

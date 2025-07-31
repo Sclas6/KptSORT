@@ -1,8 +1,12 @@
 .venv/
 __pycache__/
-sources/
+sources/*
+datasets/*
+output/*
+result/*
+runs/*
 a.py
-test.*
+test*
 *.png
 *.pkl
 *.pickle

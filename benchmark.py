@@ -8,9 +8,9 @@ from ultralytics import YOLO
 import numpy as np
 import pickle
 import math
-import time
+import pandas as pd
 from tqdm import tqdm
-
+from numba import njit
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -24,6 +24,7 @@ class Counter():
         self.exchanged_w_id = dict()
         self.hived_counter_series = dict()
         self.exchanged_counter_series = dict()
+        self.trajectories = dict()
         
     def update(self, c=None, ids=None, care=None, cared=None, exchanged=None, exchanged_w_id=None, hived_series=None, exchanged_series=None):
         if c != None: self.c = c
@@ -56,6 +57,34 @@ class Counter():
                 self.exchanged_w_id[exchanged_w_id[0]][exchanged_w_id[1]] += exchanged_w_id[2]
         if hived_series != None: self.hived_counter_series[hived_series[0]] += hived_series[1]
         if exchanged_series != None: self.exchanged_counter_series[exchanged_series[0]] += exchanged_series[1]
+        
+class Bee():
+    def __init__(self, id: int, pos: tuple, length: int=10):
+        self.id = id
+        self.age = 0
+        self.distance = 0
+        self.length = length
+        self.pos = pos
+        self.trajectory = pd.DataFrame({"y": [pos[0]], "x": [pos[1]]})
+    
+    def update(self, pos):
+        self.trajectory = pd.concat([self.trajectory, pd.DataFrame({"y": [pos[0]], "x": [pos[1]]})], axis=0)
+        self.trajectory = self.trajectory.reset_index(drop=True)
+        if len(self.trajectory) > self.length:
+            self.trajectory = self.trajectory.drop(index=0)
+        self.trajectory = self.trajectory.reset_index(drop=True)
+        self.age += 1
+        self.distance += math.dist(pos, self.pos)
+        self.pos = pos
+        
+    def draw_trajectory(self, frame, color=(0,0,255)):
+        for i, row in self.trajectory.iloc[::-1].iterrows():
+            if i != 0:
+                pt1 = (row["y"], row["x"])
+                pt2 = (self.trajectory.at[i-1, "y"], self.trajectory.at[i-1, "x"])
+                cv2.line(frame, pt1, pt2, color, 5)
+                #print(f"draw: {pt1} to {pt2}")
+    
         
 class Score():
     def __init__(self):
@@ -94,6 +123,8 @@ def check_overlap_2(individuals, threshold: int):
                 desirable2remove.append((fulls[tuple(individual)], fulls[tuple(ind)]))
     return np.array(list(desirable2remove))
 
+
+@njit
 def calc_ava_length(trackers):
     sum = 0
     count = len(trackers)
@@ -110,6 +141,7 @@ def calc_ava_length(trackers):
         sum += dist
     return sum / count
 
+@njit
 def calc_unit_vector(d):
     if d[6] == 0:
         v = np.array([d[0] - d[2], d[1] - d[3]])
@@ -122,6 +154,7 @@ def calc_unit_vector(d):
         return v / np.linalg.norm(v)
     else: return None
     
+
 def mark_losted_trackers(frame, trackers, ids_prev:tuple, losted: dict):
     losts = ids_prev[0].difference(set(trackers[:, -1]))
     for d in ids_prev[1]:
@@ -153,7 +186,7 @@ def gen_graphs(counter: Counter, score: Score, colors: dict, path_out: str):
                 cared_counter_sum[hive_id] = 0
             cared_counter_sum[hive_id] += count
     #print(([str(k) for k, v in cared_counter_sum.items() if v != 0], [v for v in cared_counter_sum.values() if v != 0]))
-    elements = [k for k, v in cared_counter_sum.items() if v > 15]
+    elements = [k for k, v in cared_counter_sum.items() if v > 125]
     for i, key in enumerate(counter.cared_counter):
         if i == 0:
             plt.bar([str(k) for k in counter.cared_counter[key].keys() if k in elements], [v for k, v in counter.cared_counter[key].items() if k in elements], color=(colors[key][0]/255,colors[key][1]/255,colors[key][2]/255))
@@ -161,11 +194,17 @@ def gen_graphs(counter: Counter, score: Score, colors: dict, path_out: str):
             plt.bar([str(k) for k in counter.cared_counter[key].keys() if k in elements], [v for k, v in counter.cared_counter[key].items() if k in elements], bottom=[v for k, v in counter.cared_counter[list(counter.cared_counter.keys())[i - 1]].items() if k in elements], color=(colors[key][0]/255,colors[key][1]/255,colors[key][2]/255))
     plt.savefig(f"{path_out}hived_counter.png")
     plt.cla()
+    counter.trajectories = sorted(counter.trajectories.items(), key=lambda x:x[1])
+    print(counter.trajectories)
+    plt.barh([str(i[0]) for i in counter.trajectories], [i[1] for i in counter.trajectories])
+    plt.savefig(f"{path_out}trajectories.png")
+    plt.cla()
     #print(counter.care_counter)
     exchanged_map = np.zeros((int(max(counter.exchanged_w_id.keys())) + 1, int(max(counter.exchanged_w_id.keys())) + 1))
     for i in counter.exchanged_w_id.keys():
         for j in counter.exchanged_w_id[i]:
             exchanged_map[int(i)][int(j)] = counter.exchanged_w_id[i][j]
+    counter.ids_counter = {k: v for k, v in counter.ids_counter.items() if v > 10}
     plt.bar(counter.ids_counter.keys(), counter.ids_counter.values())
     plt.savefig(f"{path_out}trackrets.png")
     plt.cla()
@@ -243,23 +282,30 @@ MODE_SHOW = 1
 
 mode = MODE_SHOW
 
-path_csv = "/kpsort/sources/DLC/out_DLC_30fps/resized_IMG_7730_30fpsDLC_dlcrnetms5_bee1011_18Oct17shuffle1_200000_el.csv"
-path_pkl = "/kpsort/sources/DLC/out_DLC_30fps/resized_IMG_7730_30fpsDLC_dlcrnetms5_bee1011_18Oct17shuffle1_200000_full.pickle"
+path_csv = "sources/DLC/out_DLC_0430/dlc_pos9_resnet50.csv"
+path_pkl = "sources/DLC/out_DLC_0430/dlc_pos9_resnet50.pickle"
+
+#path_csv = "/kpsort/sources/DLC/out_DLC_30fps/resized_IMG_7730_30fpsDLC_dlcrnetms5_bee1011_18Oct17shuffle1_200000_el.csv"
+#path_pkl = "/kpsort/sources/DLC/out_DLC_30fps/resized_IMG_7730_30fpsDLC_dlcrnetms5_bee1011_18Oct17shuffle1_200000_full.pickle"
+
 
 with open(path_pkl, "rb") as file:
     data_pkl: dict = pickle.load(file)
 data_csv = load_csv(path_csv)
 color_map = iter(gen_random_colors(10000, 334))
 
-model = YOLO("sources/Models/best_bench.pt", task="predict")
-cap = cv2.VideoCapture("/kpsort/sources/Videos/resized_IMG_7730_30fps.mp4")
+model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
+#model = YOLO("sources/Models/bench_obb.pt")
+cap = cv2.VideoCapture("/kpsort/sources/Videos/resized_0430.mp4")
+#cap = cv2.VideoCapture("/kpsort/sources/Videos/resized_IMG_7730_30fps.mp4")
+
 
 th = 0.2
 
 fps = cap.get(cv2.CAP_PROP_FPS)
 size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-video = cv2.VideoWriter(f"output/videos/{th}_0424.mp4",fourcc, fps, size)
+video = cv2.VideoWriter(f"output/videos/{th}_0703.mp4",fourcc, fps, size)
 
 colors = dict()
 ids_prev = None
@@ -268,44 +314,40 @@ losted = dict()
 mot_tracker = Sort(oks_threshold=0.00001)
 counter = Counter()
 score = Score()
+bees = dict()
 
 with open("hive_2.pkl", "rb") as f:
     hive = pickle.load(f)
     #counter.cared_counter = {h.id: 0 for h in hive.hives}
+    
+data_raw = list()
+for i, k in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
+    if i > 0:
+        data_raw.append(pkl2setlist(data_pkl, i - 1))
 
 prog = tqdm(desc="Generating", total=cap.get(cv2.CAP_PROP_FRAME_COUNT))
 while True:
     success, frame = cap.read()
     counter.update(hived_series=(counter.c, 0), exchanged_series=(counter.c, 0))
     
-    if counter.c > 8500:
+    if counter.c > 200:
         counter.update(ids=dict((x, y) for x, y in sorted(counter.ids_counter.items())))
         plt.bar(counter.ids_counter.keys(), counter.ids_counter.values())
         plt.savefig(f"output/figure/trackrets_{th}.png")
         plt.cla()
         gen_graphs(counter, score, colors, "output/graphs/")
+        for bee in bees.values():
+            print(f"{bee.id}: {bee.distance}")
         
         break
     if success:
-        individuals, frame = assemble_w_yolo(model, frame, data_pkl, data_csv, th, counter.c)
+        individuals, _ = assemble_w_yolo(model, frame, data_raw[counter.c], data_csv[counter.c], th)
         cv2.putText(frame, str(counter.c), (100, 100), cv2.FONT_HERSHEY_PLAIN, 5, (255, 255, 255), 1, cv2.LINE_AA)
         desirable2remove = check_overlap_2(individuals, 0.5)
-        #desirable2remove = []
-        for individual in individuals:
-            for i in range(0, len(individual) - 1, 2):
-                if math.isnan(individual[i]): continue
-                cv2.circle(frame, (int(individual[i]), int(individual[i + 1])), 5, (0, 255, 0), 5)
-        if counter.c > 544 and counter.c < 550:
-            print(counter.c)
-            for i in individuals:
-                print(i)
-            print()
-            for i in data_csv[counter.c]:
-                print(i)
             
         trackers = mot_tracker.update(individuals, desirable2remove, th)
-        if counter.c != 0:
-            frame, losted = mark_losted_trackers(frame, trackers, ids_prev, losted)
+        #if counter.c != 0:
+            #frame, losted = mark_losted_trackers(frame, trackers, ids_prev, losted)
 
         pred_ids = [d[-1] for d in trackers]
         score.update(misses=score.misses + len(set(score.pre_ids) - set(pred_ids)) if counter.c != 0 else 0, g=score.g + 10, pre_ids=pred_ids)
@@ -328,13 +370,22 @@ while True:
             for i in range(0, len(d[:3 * 2 + 1]), 2):
                 if i > 4: break
                 if mask[i] != "1":
-                    cv2.circle(frame, (d[i], d[i + 1]), 4, colors[d[-1]], 4)
-            cv2.putText(frame, str(d[-1]), (d[0], d[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d[-1]], 1, cv2.LINE_AA)
+                    cv2.circle(frame, (d[i], d[i + 1]), 10, colors[d[-1]], 5)
+            cv2.putText(frame, str(d[-1]), (d[0], d[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d[-1]], 3, cv2.LINE_AA)
+            if d[-1] not in bees:
+                bees[d[-1]] = Bee(id=d[-1], pos=(d[0], d[1]), length=200)
+            else:
+                bees[d[-1]].update(pos=(d[0], d[1]))
+                bees[d[-1]].draw_trajectory(frame, colors[d[-1]])
+        
+        counter.trajectories = {k: v.distance for k, v in bees.items()}
+
         ids_prev = (set(trackers[:, -1]), trackers)
                 
         counter.inc(c=1)
         prog.update(1)
         video.write(frame)
     else: 
+        score.update(idsw=15)
         gen_graphs(counter, score, colors, "output/graphs/")
         break
