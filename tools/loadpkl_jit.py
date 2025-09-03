@@ -10,7 +10,7 @@ import numba
 import math
 
 BODYPARTS = 3
-INDIVISUALS = 22
+INDIVISUALS = 20
 
 @njit
 def delete_3d_row(arr, num):
@@ -145,13 +145,27 @@ def take_difference_jit(parts_raw, data_csv):
     parts_csv = np.full((3, len(data_csv), 3), np.nan)
     parts_dif = np.copy(parts_raw)
     individuals = np.empty((0, 7))
-
+    
+    dist_avg = 0
     for i, part in enumerate(data_csv):
-        if True:
+        part_float = part.astype(np.float32)
+        dist_avg += (np.linalg.norm(part_float[0] - part_float[1]) + np.linalg.norm(part_float[1] - part_float[2]))
+    dist_avg /= len(data_csv)
+    for i, part in enumerate(data_csv):
+        part_float = part.astype(np.float32)
+        
+        #if not (np.linalg.norm(part_float[0] - part_float[1]) + np.linalg.norm(part_float[1] - part_float[2])) > 55:
+        if not (np.linalg.norm(part_float[0] - part_float[1]) + np.linalg.norm(part_float[1] - part_float[2])) > dist_avg * 1.5:
             individuals = np.append(individuals, np.array([[part[0][0], part[0][1], part[1][0], part[1][1], part[2][0], part[2][1], 0]]), axis=0)
             for j, kpt in enumerate(part):
                 parts_csv[j,i] = kpt
-                pass
+        else:
+            parts_dif_new = np.full((parts_dif.shape[0], parts_dif.shape[1] + 1, parts_dif.shape[2]), np.nan)
+            parts_dif_new[:,:parts_dif.shape[1],:] = parts_dif
+            for j, kpt in enumerate(part):
+                parts_dif_new[j, -1] = kpt
+            parts_dif = parts_dif_new
+                
 
 
     for i, part in enumerate(parts_raw):
