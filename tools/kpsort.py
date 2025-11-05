@@ -227,23 +227,27 @@ class Sort(object):
             #pos = [trk for trk in self.trackers if trk[1] == -1][t][0].predict()
             pos = self.trackers[t][0].predict()
             trk[:] = [pos[0], pos[1], pos[2], pos[3], pos[4], pos[5], pos[6]]
-        if len(trks) != 0 and len(desirable2removes) !=0:
-            #print(desirable2removes)
+        if len(desirable2removes) !=0:
             removes = list()
-            for pair_d2r in desirable2removes:
-                okses = list()
-                for d2r in pair_d2r:
-                    oks_max = 0
-                    for trk in trks:
-                        oks_max = max(oks(kpts[d2r], trk, SIGMA), oks_max)
-                    okses.append(oks_max)
-                okses = np.array(okses)
-                
-                if np.all(okses==min(okses)):
-                    removes.append(pair_d2r[0])
-                else:
-                    removes.append(pair_d2r[np.where(okses==min(okses))[0][0]])
+            if len(trks) != 0:
+                for pair_d2r in desirable2removes:
+                    okses = list()
+                    for d2r in pair_d2r:
+                        oks_max = 0
+                        for trk in trks:
+                            oks_max = max(oks(kpts[d2r], trk, SIGMA), oks_max)
+                        okses.append(oks_max)
+                    okses = np.array(okses)
+                    
+                    if np.all(okses==min(okses)):
+                        removes.append(pair_d2r[0])
+                    else:
+                        removes.append(pair_d2r[np.where(okses==min(okses))[0][0]])
+            else:
+                for pair_d2r in desirable2removes:
+                    removes.append(np.random.choice(pair_d2r, 1)[0])
             kpts = np.delete(kpts, removes, 0)
+
         matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(kpts, trks, self.oks_threshold)
         #print(matched)
             
@@ -254,8 +258,10 @@ class Sort(object):
             det_pos = np.array([np.average(kpts[m[0]][:6:2][~np.isnan(kpts[m[0]][:6:2])]), np.average(kpts[m[0]][1:6:2][~np.isnan(kpts[m[0]][1:6:2])])])
             trk_pos = np.array([np.average(self.trackers[m[1]][0].get_state()[:6:2][~np.isnan(self.trackers[m[1]][0].get_state()[:6:2])]), np.average(self.trackers[m[1]][0].get_state()[1:6:2][~np.isnan(self.trackers[m[1]][0].get_state()[1:6:2])])])
             dist = np.linalg.norm(det_pos - trk_pos)
+            #if True:
             if dist < 50:
                 self.trackers[m[1]][0].update(kpts[m[0], :])
+                self.trackers[m[1]][1] = -1
             else:
                 unmatched_dets = np.append(unmatched_dets, int(m[0])).astype(int)
                 unmatched_trks = np.append(unmatched_trks, int(m[1])).astype(int)

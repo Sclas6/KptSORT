@@ -6,9 +6,6 @@ from itertools import permutations
 from tools.calk_oks import oks
 import math
 
-BODYPARTS = 3
-INDIVISUALS = 22
-
 def check_overlap(kpts:list, indivisuals:list, threshould):
     oks_max = 0
     for individual in indivisuals:
@@ -19,16 +16,16 @@ def check_overlap(kpts:list, indivisuals:list, threshould):
     return True
 
 
-def load_csv(path):
+def load_csv(path, n_indivisualt, n_bodyparts):
     with open(path) as f:
         reader = csv.reader(f)
         indivisual = []
         for i, row in enumerate(reader):
             if i <=3: continue
             tmp = []
-            for j in range(INDIVISUALS):
+            for j in range(n_indivisualt):
                 kpts = []
-                for k in range((BODYPARTS+6) * j + 1, (BODYPARTS+6) * (j + 1) + 1, 3):
+                for k in range((n_bodyparts+6) * j + 1, (n_bodyparts+6) * (j + 1) + 1, 3):
                     if row[k] == "":
                         pass
                     else:

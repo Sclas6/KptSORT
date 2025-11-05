@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import japanize_matplotlib
 import numpy as np
 
-with open("output/flora2_50000/trajectories_med_series.pkl", mode="rb") as f:
+with open("output/flora2/trajectories_med_series.pkl", mode="rb") as f:
     series_1 = pickle.load(f)
 
-with open("output/noflora2_50000/trajectories_med_series.pkl", mode="rb") as f:
+with open("output/noflora2/trajectories_med_series.pkl", mode="rb") as f:
     series_2 = pickle.load(f)
 
 series_1[0] = series_1[0][100:]
@@ -35,22 +35,22 @@ plt.figure(figsize=(80, 30))
 plt.plot(series_1[0], series_1[1])
 plt.plot(series_1[0], x_KF1_1, lw=4)
 plt.plot(series_1[0], x_KF2_1, lw=4, color="red")
-plt.suptitle("総移動距離の平均値推移", fontsize=100)
+plt.suptitle("総移動距離の中央値推移", fontsize=100)
 plt.title(f"平均: {np.mean(series_1[1])}cm", fontsize=80)
 plt.xlabel("フレーム", fontsize=80)
-plt.ylabel("移動距離の平均", fontsize=80)
-plt.savefig(f"flora2.png")
+plt.ylabel("移動距離の中央値", fontsize=80)
+plt.savefig(f"1_med_flora.png")
 plt.cla()
 
 plt.figure(figsize=(80, 30))
 plt.plot(series_2[0], series_2[1])
 plt.plot(series_2[0], x_KF1_2, lw=4)
 plt.plot(series_2[0], x_KF2_2, lw=4, color="red")
-plt.suptitle("総移動距離の平均値推移", fontsize=100)
+plt.suptitle("総移動距離の中央値推移", fontsize=100)
 plt.title(f"平均: {np.mean(series_2[1])}cm", fontsize=80)
 plt.xlabel("フレーム", fontsize=80)
-plt.ylabel("移動距離の平均", fontsize=80)
-plt.savefig(f"noflora2.png")
+plt.ylabel("移動距離の中央値", fontsize=80)
+plt.savefig(f"1_med_noflora.png")
 plt.cla()
 
 

@@ -9,9 +9,6 @@ from numba import jit
 import numba
 import math
 
-BODYPARTS = 3
-INDIVISUALS = 20
-
 @njit
 def delete_3d_row(arr, num):
     result = np.empty((len(arr)-1, 4, 2), arr.dtype)
@@ -55,27 +52,14 @@ def check_overlap(kpts:list, indivisuals:list, threshould):
     return True
 
 
-def load_csv(path):
-    with open(path) as f:
-        reader = csv.reader(f)
-        indivisual = []
-        for i, row in enumerate(reader):
-            if i <=3: continue
-            tmp = []
-            for j in range(INDIVISUALS):
-                kpts = []
-                for k in range((BODYPARTS+6) * j + 1, (BODYPARTS+6) * (j + 1) + 1, 3):
-                    if row[k] == "":
-                        pass
-                    else:
-                        kpts.append((float(row[k]), float(row[k + 1]), float(row[k + 2])))
-                    k += 1
-                if len(kpts) != 0:
-                    #if not check_overlap(kpts, tmp, True):
-                        tmp.append(kpts)
-            #indivisual = np.append(indivisual, np.array(tmp))
-            indivisual.append(np.array(tmp))
-    return indivisual
+def load_csv(path, n_indivisuals, n_bodyparts):
+    csv_data = np.genfromtxt(path, delimiter=',', dtype=np.float32, skip_header=4, usecols=[i for i in range(1, n_indivisuals*9+1)])
+    indivisuals = []
+    for row in csv_data:
+        kpts = np.reshape(row, (int(len(row)/9), 3, 3))
+        kpts = kpts[~np.all(np.isnan(kpts), axis=(1, 2))]
+        indivisuals.append(kpts)
+    return indivisuals
 
 
 def pkl2setlist(pkl: dict, frame: int) -> set:
@@ -83,15 +67,16 @@ def pkl2setlist(pkl: dict, frame: int) -> set:
         return "".join(["0" for _ in range(digits - len(str(id_frame)))]) + str(id_frame)
     tmp = []
     digits = len(list(pkl.keys())[1][5:])
-    for part in zip(pkl[f"frame{_format_frame_string(digits, frame)}"]["coordinates"][0], pkl[f"frame{_format_frame_string(digits, frame)}"]["confidence"]):
-        tmp.append(list(zip(part[0].tolist(), part[1].tolist())))
+    for part in zip(pkl[f"frame{_format_frame_string(digits, frame)}"]["coordinates"][0], np.squeeze(pkl[f"frame{_format_frame_string(digits, frame)}"]["confidence"])):
+        mask = part[1] < 0.6
+        tmp.append(list(zip(part[0][~mask].tolist(), part[1][~mask].tolist())))
     parts = []
     part_num = 0
     for part in tmp:
         part_set = []
         for kpt in part:
             #np.append(parts, (kpt[0][0], kpt[0][1], kpt[1][0]))
-            part_set.append((kpt[0][0], kpt[0][1], kpt[1][0]))
+            part_set.append((kpt[0][0], kpt[0][1], kpt[1]))
         parts.append(part_set)
         part_num = max(part_num, len(part_set))
     for part in parts:

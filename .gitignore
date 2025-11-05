@@ -1,4 +1,5 @@
 .venv/
+.cv2/
 __pycache__/
 sources/*
 datasets/*

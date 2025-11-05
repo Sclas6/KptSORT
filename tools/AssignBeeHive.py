@@ -3,6 +3,7 @@ import copy
 import numpy as np
 import os
 import pickle
+from pathlib import Path
 from tqdm import tqdm
 from PIL import Image
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
@@ -52,6 +53,7 @@ class Hive:
         self.color = color
         self.pos = pos
         self.mask = mask
+        self.counter = 0
 
 class AssignBeeHive():
     def __init__(self, path_img: str, pps:int=64, cnl:int = 3, mode_binarize:int=MODE_DOG, th_size: tuple=(150, 700)):
@@ -59,7 +61,7 @@ class AssignBeeHive():
         self.dir = f"result/pps{pps}_cnl{cnl}_{mode_binarize}/"
         self.mode_binarize = mode_binarize
         self.config_sam = (pps, cnl)
-        self.hives = list()
+        self.hives = dict()
         self.th_size = th_size
         self.colors2id = dict()
         self.center2id = dict()
@@ -82,8 +84,9 @@ class AssignBeeHive():
         cv2.imwrite(f"out_fixed_{mode}.png", fixed)
     
     def _optimize_mask(self, pps: int, cnl: int):
+        name_img = Path(self.path_img).stem
         path = f"result/pps{pps}_cnl{cnl}_{self.mode_binarize}/"
-        img =  cv2.imread(f"{path}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_.png")
+        img =  cv2.imread(f"{path}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}_.png")
         # BGR
         """for hive in self.hives:
             color  = np.array(hive.color)
@@ -91,7 +94,7 @@ class AssignBeeHive():
             print(pixels)"""
         # HSV
         to_del = list()
-        for hive in self.hives:
+        for hive in self.hives.values():
             color = hive.color
             color_hsv = cv2.cvtColor(np.array([[color]], dtype=np.uint8), cv2.COLOR_BGR2HSV)[0][0]
             img_mask = cv2.inRange(cv2.cvtColor(img, cv2.COLOR_BGR2HSV), color_hsv, color_hsv)
@@ -106,25 +109,29 @@ class AssignBeeHive():
     def gen_mask_w_sam(self):
         pps, cnl = self.config_sam
         img = cv2.imread(f"out_fixed_{self.mode_binarize}.png")
+        name_img = Path(self.path_img).stem
         if not os.path.isdir(self.dir):
             os.makedirs(self.dir)
+        if not os.path.exists(f"sources/hives/{name_img}/"):
+            os.makedirs(f"sources/hives/{name_img}/")
 
         bar_sam = tqdm(total=1, desc="%-15s" % ("Preparing Mask Data"))
-        if not os.path.exists(f"{self.dir}result.pickle"):
+        if not os.path.exists(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}.pickle"):
             sam = sam_model_registry["default"](checkpoint="sources/Models/sam_vit_h_4b8939.pth")
             sam.to(device="cuda")
             mask_generator = SamAutomaticMaskGenerator(model=sam, points_per_side=pps, crop_n_layers=cnl)
             masks = mask_generator.generate(img)
-            with open(f"{self.dir}result.pickle", 'wb') as fo:
+            with open(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}.pickle", 'wb') as fo:
                 pickle.dump(masks, fo)
         else:
-            with open(f"{self.dir}result.pickle", 'rb') as fi:
+            with open(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}.pickle", 'rb') as fi:
                 masks = pickle.load(fi)
         bar_sam.update(1)
         bar_sam.close()
 
         combined_mask = np.zeros_like(img)
         np.random.seed(seed=32)
+        print(len(masks))
         color_map = iter(gen_random_colors(len(masks)))
         i = 0
 
@@ -136,7 +143,7 @@ class AssignBeeHive():
             if w / h < 0.5 or w / h > 1.5: continue
             center = (int((x * 2 + w) / 2), int((y * 2 + h) / 2))
             color = next(color_map)
-            self.hives.append(Hive(id=i, color=color, pos=center, mask=mask))
+            self.hives[i] = Hive(id=i, color=color, pos=center, mask=mask)
             i += 1
             colored_mask = np.zeros_like(img)
             colored_mask[mask == 1] = color
@@ -144,12 +151,12 @@ class AssignBeeHive():
             combined_mask_colored = combined_mask.copy()
             combined_mask_colored[colored_mask > 0] = 0        
         combined_mask_3ch = np.clip(combined_mask, 0, 255)
-        cv2.imwrite(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_.png", combined_mask_3ch)
+        cv2.imwrite(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}_.png", combined_mask_3ch)
     
         self._optimize_mask(pps, cnl)
         combined_mask = np.zeros_like(img)
 
-        for hive in tqdm(self.hives, desc="%-15s" % ("Optimizing Images")):
+        for hive in tqdm(self.hives.values(), desc="%-15s" % ("Optimizing Images")):
             mask = hive.mask
             color = hive.color
             center = hive.pos
@@ -163,11 +170,12 @@ class AssignBeeHive():
             self.positions.append((hive.pos))
         combined_mask_3ch = np.clip(combined_mask, 0, 255)
         img_w_ids = copy.deepcopy(combined_mask_3ch)
-        for hive in self.hives:
+        for hive in self.hives.values():
             cv2.putText(img_w_ids, str(hive.id), hive.pos, 1, 0.8, (255, 255, 255))
-
-        cv2.imwrite(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}.png", combined_mask_3ch[327:1593, :])
-        cv2.imwrite(f"{self.dir}bbox_pps{pps}_cnl{cnl}_{self.mode_binarize}.png", img_w_ids)
+        img_row = cv2.imread(self.path_img)
+        h, w, _ = img_row.shape
+        cv2.imwrite(f"sources/hives/{name_img}/result_{name_img}.png", combined_mask_3ch[int((w-h)/2):int((w-h)/2) + h, :])
+        cv2.imwrite(f"{self.dir}bbox_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}.png", img_w_ids)
 
     def gen_mask_w_sam2(self):
         pass
@@ -176,8 +184,9 @@ class AssignBeeHive():
         pass
     
     def pos2id(self, pos: tuple, img=None):
+        name_img = Path(self.path_img).stem
         if img is None:
-            generated_img = cv2.imread(f"{self.dir}result_pps{self.config_sam[0]}_cnl{self.config_sam[1]}_{self.mode_binarize}.png")
+            generated_img = cv2.imread(f"/kpsort/sources/hives/{name_img}/result_{name_img}.png")
         else:
             generated_img = img
             
@@ -188,14 +197,9 @@ class AssignBeeHive():
             color = generated_img[(y, x)]
             if np.count_nonzero(color) != 0:
                 #print("on")
-                return self.colors2id[tuple(color.tolist())]
-        x0 = [xy[0] for xy in self.positions]
-        y0 = [xy[1] for xy in self.positions]
+                return self.colors2id[tuple(color.tolist())], 0
+        x0 = np.array([xy[0] for xy in self.positions])
+        y0 = np.array([xy[1] for xy in self.positions])
         distance = (x0 - x) ** 2 + (y0 - y) ** 2
         i = np.argmin(distance)
-        """print(f"{self.dir}result_pps{self.config_sam[0]}_cnl{self.config_sam[1]}_{self.mode_binarize}.png")
-        print(pos)
-        print((x0[i], y0[i]))"""
-        return self.center2id[(x0[i], y0[i])]
-    
-    
+        return self.center2id[(x0[i], y0[i])], np.min(distance)
