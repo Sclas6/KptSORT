@@ -1,8 +1,11 @@
 import cv2
 import copy
+import math
 import numpy as np
 import os
 import pickle
+from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 from tqdm import tqdm
 from PIL import Image
@@ -10,6 +13,66 @@ from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 
 MODE_CANNY = 0
 MODE_DOG = 1
+
+@dataclass
+class CaringEvent:
+    id_hive:    int
+    duration:   int
+    
+@dataclass
+class TrophallaxisEvent:
+    type:       int
+    id_pair:    int
+    duration:   int
+
+class Bee():
+    hived_series: np.ndarray
+    exchanged_series: np.ndarray
+    distances_avg: np.ndarray
+    distances_med: np.ndarray
+    def __init__(self, id: int, pos: tuple, length: int=10):
+        self.id = id
+        self.age = 0
+        self.distance = 0
+        self.distance_sum = 0
+        self.length = length
+        self.pos = pos
+        #self.trajectory = pl.DataFrame({"y": [pos[0]], "x": [pos[1]]})
+        self.trajectory_deque = deque([np.array(pos)], maxlen=length)
+
+        self.tracked_frames = 0
+        self.feeding_hives = dict()
+        self.exchanging = dict()
+        
+        self.care_frames = 0
+        self.noncare_frames = 0
+        self.care_hives = list()
+        self.event_caring = list()
+        
+        self.trophallaxis_pairs = dict()
+        self.nontrophallaxis_pairs = dict()
+        self.pair_prevs = dict()
+        self.event_trophallaxis = list()
+    
+    def update(self, pos, fps, reset=False):
+        self.trajectory_deque.append(np.array(pos))
+        self.age += 1
+        if reset:
+            self.trajectory_deque = deque([np.array(pos)], maxlen=self.length)
+            self.age = 1
+            self.pos = pos
+            #self.distance = 0
+            #self.distance_sum = 0
+        if self.age % int(fps * 2) == 0:
+            self.distance = math.dist(pos, self.pos) / 44
+            self.distance_sum += self.distance
+            self.pos = pos
+        
+    def draw_trajectory(self, frame, img_tracklets, color=(0,0,255)):
+        points = np.array(self.trajectory_deque).reshape(-1, 1, 2).astype(np.int32)
+        cv2.polylines(frame, [points], False, color, 5)
+        cv2.polylines(img_tracklets, [points], False, color, 5)
+
 
 def DoG(img, size1, size2):
     g1 = cv2.GaussianBlur(img, (size1, size1), 0)
