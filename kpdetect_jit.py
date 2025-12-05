@@ -3,6 +3,7 @@ os.chdir("/kpsort")
 from tools.kpsort import Sort
 from tools.loadpkl_jit import *
 from tools.AssignBeeHive import AssignBeeHive, Hive, Bee, CaringEvent, TrophallaxisEvent
+from tools.AssignBeeHive import BEHAVIOR_CARING, BEHAVIOR_NOTHING, BEHAVIOR_TROPHALLAXIS
 from ultralytics import YOLO
 from tqdm import tqdm
 from tqdm.contrib import tzip
@@ -19,6 +20,8 @@ import seaborn as sns
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import DBSCAN
+
+from scipy.spatial import KDTree
 
 def check_overlap_2(individuals, threshold: int):
     fulls_sorted = list()
@@ -386,11 +389,19 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
     Bee.distances_avg = np.zeros((frames))
     Bee.distances_med = np.zeros((frames))
 
+    nnds = []
+
     c = 0
     prog = tqdm(desc="Generating", total=n_frames)
     while True:
         success, frame = cap.read()
         if c > n_frames:
+            
+            fig, ax = plt.subplots()
+            ax.plot([i for i in range(len(nnds))], nnds)
+            fig.suptitle("密集度の時系列変化")
+            ax.set_title(f"平均密集度: {np.mean(nnds)}")
+            plt.savefig(f"{filename}.png")
             _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
             break
         if success:
@@ -411,11 +422,32 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                 pos_center_2 = np.mean(kpt[~np.isnan(kpt).any(axis=1), :], axis=0)
                 poses = np.append(poses, [pos_center_2], axis=0)
             X = StandardScaler().fit_transform(poses)
-            
-            db = DBSCAN(eps=0.3, min_samples=2)
+            db = DBSCAN(eps=0.3, min_samples=3)
             db.fit(X)
             labels = db.labels_
             sum_densed[c] = len(labels[labels != -1])
+            tree_total = KDTree(poses)
+            D_max = np.sqrt(height**2 + width**2)
+            # 全個体 poses に対して、自身を除いた最近隣 (k=2) までの距離を計算
+            distances_total, _ = tree_total.query(poses, k=2)
+
+            # NND_total の計算
+            nnd_total = np.mean(distances_total[:, 1])
+            nnd_norm = nnd_total / D_max
+            cohesion_index = 1.0 - nnd_norm
+            cohesion_index = np.power(cohesion_index, 2)
+            # NND_total の逆数
+            nnd_inverse_total = 1.0 / nnd_total
+
+            # ----------------------------------------------------
+            # 2. 複合密集度 CFI'' の計算
+            # ----------------------------------------------------
+            # sum_densed と N は DBSCAN結果から取得済みとする
+            relative_density = sum_densed[c] / len(poses)
+            CFI_double_prime = cohesion_index * relative_density
+            #CFI_double_prime = nnd_inverse_total * relative_density
+
+            nnds.append(CFI_double_prime)
 
             trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
 
@@ -453,7 +485,13 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 
                 d_exchange = detect_trophallaxis(d_int, trackers, bees, fps)          
                 d_caring, id_hive = detect_caring(d_int, mask, hive, img_hive_sam, bees[d_int[-1]], fps)
-
+                
+                if d_caring:
+                    bees[d_int[-1]].update_status(BEHAVIOR_CARING)
+                elif d_exchange:
+                    bees[d_int[-1]].update_status(BEHAVIOR_TROPHALLAXIS)
+                else:
+                    bees[d_int[-1]].update_status(BEHAVIOR_NOTHING) 
 
                 for i in range(0, len(d_int[:3 * 2 + 1]), 2):
                     if i > 4: break
@@ -501,4 +539,4 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 if __name__ == "__main__":
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #19 20 22
-    kpdetect("resized_0430", "resized_0430", model, 22, 5000)
+    kpdetect("flora1", "0902", model, 18, 10000)

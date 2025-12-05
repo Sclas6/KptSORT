@@ -176,7 +176,9 @@ app.layout = dbc.Container([
                 dcc.Graph(id="fig_TotalRearingTime", figure=figs["TotalRearingTime"], style={'width': '95vh', 'height': '45vh'}),
                 dcc.Graph(id="fig_TotalTrophallaxisTime", figure=figs["TotalTrophallaxisTime"], style={'width': '95vh', 'height': '45vh'}),
                 dcc.Graph(id="fig_Caring_Network", figure=figs["Caring_Network"], style={'width': '95vh', 'height': '75vh'}),
+                dcc.Graph(id="fig_Caring_Heatmap", figure=figs["Caring_Heatmap"], style={'width': '95vh', 'height': '75vh'}),
                 dcc.Graph(id="fig_Trophallaxis_Network", figure=figs["Trophallaxis_Network"], style={'width': '95vh', 'height': '75vh'}),
+                dcc.Graph(id="fig_Trophallaxis_Heatmap", figure=figs["Trophallaxis_Heatmap"], style={'width': '95vh', 'height': '75vh'}),
                 
                 dcc.Graph(id="line_chart", figure=fig_lines),      
             ])
@@ -209,7 +211,9 @@ def update_graph_(index):
     Output(component_id="fig_TotalRearingTime", component_property="figure", allow_duplicate=True),
     Output(component_id="fig_TotalTrophallaxisTime", component_property="figure", allow_duplicate=True),
     Output(component_id="fig_Caring_Network", component_property="figure", allow_duplicate=True),
+    Output(component_id="fig_Caring_Heatmap", component_property="figure", allow_duplicate=True),
     Output(component_id="fig_Trophallaxis_Network", component_property="figure", allow_duplicate=True),
+    Output(component_id="fig_Trophallaxis_Heatmap", component_property="figure", allow_duplicate=True),
 ], [Input(component_id="th", component_property="value", allow_optional=True)],
               prevent_initial_call=True)
 def update_graph(th):

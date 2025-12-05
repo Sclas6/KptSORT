@@ -10,8 +10,93 @@ from plotly.subplots import make_subplots
 import collections
 import networkx as nx
 from networkx.drawing.layout import bipartite_layout
+import numpy as np
 
-def gen_network(edges, title=""):
+def export_to_csv(df: pd.DataFrame, path_out: str, filename: str):
+    """DataFrameをCSVファイルとして出力するヘルパー関数"""
+    try:
+        df.to_csv(f"{path_out}{filename}", index=True)
+    except Exception as e:
+        print(e)
+        
+def create_caring_adj_matrix(edges, bee_ids, hive_ids):
+    """
+    ハチと幼虫のエッジリストから隣接行列（相互作用の頻度）を作成する。
+    行: ハチID, 列: 幼虫ID
+    """
+    # ユニークなIDを抽出し、ソート
+    sorted_bee_ids = sorted(list(bee_ids))
+    sorted_hive_ids = sorted(list(hive_ids))
+
+    bee_to_index = {id: i for i, id in enumerate(sorted_bee_ids)}
+    hive_to_index = {id: j for j, id in enumerate(sorted_hive_ids)}
+    
+    n_bees = len(sorted_bee_ids)
+    n_hives = len(sorted_hive_ids)
+    
+    # 行（ハチ） x 列（幼虫）の行列を初期化
+    adj_matrix = np.zeros((n_bees, n_hives), dtype=int)
+    
+    for bee_id, hive_id, count in edges:
+        i = bee_to_index.get(bee_id)
+        j = hive_to_index.get(hive_id) # hive_id は str(d[0]) で文字列になっているはず
+
+        if i is not None and j is not None:
+            # i (ハチ) から j (幼虫) への相互作用のカウントを格納
+            adj_matrix[i, j] += count
+            
+    # DataFrameに変換
+    df_adj = pd.DataFrame(adj_matrix, index=sorted_bee_ids, columns=sorted_hive_ids)
+    
+    # インデックスとカラムを確実に文字列型に変換（前回の要件）
+    df_adj.index = df_adj.index.astype(str)
+    df_adj.columns = df_adj.columns.astype(str)
+    
+    return df_adj
+
+def create_adj_matrix(edges, bee_ids):
+    """
+    エッジリストから隣接行列（相互作用の頻度）を作成する。
+    
+    :param edges: (bee_id_A, bee_id_B, count) のタプルのリスト。
+    :param bee_ids: コロニー内の全てのハチのIDのリスト。
+    :return: 相互作用の頻度を示すDataFrame形式の隣接行列。
+    """
+    # 全てのユニークなIDのリストを取得し、ソートする（ヒートマップの軸を揃えるため）
+    sorted_ids = sorted(list(bee_ids))
+    id_to_index = {id: i for i, id in enumerate(sorted_ids)}
+    n = len(sorted_ids)
+    
+    # n x n のゼロ行列を初期化
+    adj_matrix = np.zeros((n, n), dtype=int)
+    
+    # エッジのデータを行列にマッピング
+    for id1, id2, count in edges:
+        # 相互作用は対称的として処理（i->jとj->iの合計、または最大値を使うなど、定義による）
+        # ここでは、データは (A, B, count) の形でユニークなペアとして収集されていると仮定し、
+        # 行列上で対称な位置にカウントを追加します。
+        # ただし、データ収集ロジックから、(bee.id, d[0], d[1]) は一方向のカウントに基づいている
+        # 可能性もあるため、ここでは単純にデータで得られた場所にのみ配置します。
+        # ネットワーク分析では無向グラフとして扱うことが多いので、対称化の処理を入れておきます。
+        
+        # インデックスを取得
+        i = id_to_index.get(id1)
+        j = id_to_index.get(id2)
+
+        if i is not None and j is not None:
+            # i から j への相互作用のカウント
+            adj_matrix[i, j] += count
+            # j から i への相互作用のカウント（無向グラフとして扱う場合）
+            # もし有向グラフとして扱いたい場合は、この行をコメントアウトしてください。
+            adj_matrix[j, i] += count
+            
+    # DataFrameに変換（Plotlyのヒートマップに使いやすいように）
+    df_adj = pd.DataFrame(adj_matrix, index=sorted_ids, columns=sorted_ids)
+    df_adj.columns = df_adj.columns.astype(str)
+    df_adj.index = df_adj.index.astype(str)
+    return df_adj
+
+def gen_network(edges, max_weight_global, title=""):
     G = nx.Graph()
     for u, v, w in edges:
         G.add_edge(u, v, weight=w * 10)
@@ -34,7 +119,7 @@ def gen_network(edges, title=""):
     # 4. 重みの正規化と線の太さの計算
     edge_weights_dict = nx.get_edge_attributes(G, 'weight')
     all_weights = list(edge_weights_dict.values())
-    max_weight = max(all_weights) if all_weights else 1
+    #max_weight = max(all_weights) if all_weights else 1
     
     # 線の太さリスト（Plotlyではトレースごとに指定するため、少しロジックが変わる）
     
@@ -45,7 +130,8 @@ def gen_network(edges, title=""):
         weight = data['weight']
         
         # 線の太さの正規化 (最大 5 にスケーリング)
-        scaled_width = (weight / max_weight) * 5
+        #scaled_width = (weight / max_weight) * 5
+        scaled_width = (weight / max_weight_global) * 5
         
         x0, y0 = pos[u]
         x1, y1 = pos[v]
@@ -118,7 +204,7 @@ def gen_network(edges, title=""):
     """
     return fig
 
-def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, edges, title=""):
+def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, edges, max_weight_global, title=""):
     B = nx.Graph()
     for e in edges: B.add_edge(e[0], e[1], weight=e[2])
     node_bees_unique = list(set(nodes_left))
@@ -132,7 +218,7 @@ def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, ed
     edge_x = []
     edge_y = []
     hover_text_edges = []
-    max_weight = max(nx.get_edge_attributes(B, 'weight').values()) if nx.get_edge_attributes(B, 'weight') else 1
+    #max_weight = max(nx.get_edge_attributes(B, 'weight').values()) if nx.get_edge_attributes(B, 'weight') else 1
 
     for edge in B.edges(data=True):
         x0, y0 = pos[edge[0]] # ノードUの座標
@@ -149,7 +235,8 @@ def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, ed
     for edge in B.edges(data=True):
         weight = edge[2].get('weight', 1)
         
-        line_width = weight / max_weight * 5 if max_weight > 0 else 1 
+        #line_width = weight / max_weight * 5 if max_weight > 0 else 1 
+        line_width = weight / max_weight_global * 5 if max_weight_global > 0 else 1
         
         start_index = current_edge_index * 3
         end_index = start_index + 2
@@ -274,6 +361,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         "ID": list(bees_1.keys()) + list(bees_2.keys())
     }
     df_distance = pd.DataFrame(data_distance)
+    export_to_csv(df_distance, path_out, "Individual_TotalDistanceTraveled.csv")
     fig_distance = go.Figure()
     for category in df_distance['Category'].unique():
         df_subset = df_distance[df_distance['Category'] == category]
@@ -321,7 +409,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         'ID': list(bees_1.keys()) + list(bees_2.keys())
     }
     df_caring = pd.DataFrame(data_caring)
-
+    export_to_csv(df_caring, path_out, "Individual_TotalRearingTime.csv")
     fig_caring = go.Figure()
     for category in df_caring['Category'].unique():
         df_subset = df_caring[df_caring['Category'] == category]
@@ -370,6 +458,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         'ID': list(bees_1.keys()) + list(bees_2.keys())
     }
     df_trophallaxis = pd.DataFrame(data_trophallaxis)
+    export_to_csv(df_trophallaxis, path_out, "Individual_TotalTrophallaxisTime.csv")
     fig_trophallaxis = go.Figure()
     for category in df_trophallaxis['Category'].unique():
         df_subset = df_trophallaxis[df_trophallaxis['Category'] == category]
@@ -410,35 +499,44 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     fig_trophallaxis.write_html(f"{path_out}TotalTrophallaxisTime.html")
     figs["TotalTrophallaxisTime"] = fig_trophallaxis
     
-
-    node_bees = []
-    node_hives = []
-    edges = []
+    node_bees_flora = []
+    node_hives_flora = []
+    edges_flora = []
+    node_bees_noflora = []
+    node_hives_noflora = []
+    edges_noflora = []
     for bee in bees_1.values():
         data_caring = collections.Counter([e.id_hive for e in bee.event_caring if e.duration > th]).most_common()
         if len(data_caring) != 0:
-            node_bees.append(bee.id)
+            node_bees_flora.append(bee.id)
             for d in data_caring:
-                node_hives.append(str(d[0]))
-                edges.append((bee.id, str(d[0]), d[1]))
-    if len(edges) != 0:
-        fig_caring_network_flora = gen_bipartite_network(node_bees, "ハチID", node_hives, "幼虫ID", edges, title="ハチと幼虫の相互作用の評価")
-    else:
-        fig_caring_network_flora = go.Figure()
-    node_bees.clear()
-    node_hives.clear()
-    edges.clear()
+                node_hives_flora.append(str(d[0]))
+                edges_flora.append((bee.id, str(d[0]), d[1]))
+
     for bee in bees_2.values():
         data_caring = collections.Counter([e.id_hive for e in bee.event_caring if e.duration > th]).most_common()
         if len(data_caring) != 0:
-            node_bees.append(bee.id)
+            node_bees_noflora.append(bee.id)
             for d in data_caring:
-                node_hives.append(str(d[0]))
-                edges.append((bee.id, str(d[0]), d[1]))
-    if len(edges) != 0:        
-        fig_caring_network_noflora = gen_bipartite_network(node_bees, "ハチID", node_hives, "幼虫ID", edges, title="ハチと幼虫の相互作用の評価")
+                node_hives_noflora.append(str(d[0]))
+                edges_noflora.append((bee.id, str(d[0]), d[1]))
+            
+    if len(edges_flora) != 0 and len(edges_noflora) != 0:
+        all_weights = [e[2] for e in edges_flora] + [e[2] for e in edges_noflora]
+        global_max_weight = max(all_weights) if all_weights else 1
+
+        fig_caring_network_flora = gen_bipartite_network(node_bees_flora, "ハチID", node_hives_flora, "幼虫ID", edges_flora, global_max_weight, title="ハチと幼虫の相互作用の評価")
+        fig_caring_network_noflora = gen_bipartite_network(node_bees_noflora, "ハチID", node_hives_noflora, "幼虫ID", edges_noflora, global_max_weight, title="ハチと幼虫の相互作用の評価")
     else:
-        fig_caring_network_noflora = go.Figure()
+        fig_caring_network_flora = go.Figure()
+        fig_caring_network_noflora = go.Figure()       
+
+    if edges_flora:
+        df_edges_flora = pd.DataFrame(edges_flora, columns=["BeeID", "HiveID", "Count"])
+        export_to_csv(df_edges_flora, path_out, "Caring_Edges_Flora.csv")
+    if edges_noflora:
+        df_edges_noflora = pd.DataFrame(edges_noflora, columns=["BeeID", "HiveID", "Count"])
+        export_to_csv(df_edges_noflora, path_out, "Caring_Edges_NoFlora.csv")
 
     combined_fig = make_subplots(
         rows=1, 
@@ -483,27 +581,136 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     combined_fig.write_html(f"{path_out}Caring_Network.html")
     figs["Caring_Network"] = combined_fig
     
+    edges_flora = []
+    bee_ids_flora = set()
+    hive_ids_flora = set()
+    for bee in bees_1.values():
+        data_caring = collections.Counter([e.id_hive for e in bee.event_caring if e.duration > th]).most_common()
+        if len(data_caring) != 0:
+            bee_ids_flora.add(bee.id)
+            for d in data_caring:
+                hive_id_str = str(d[0])
+                hive_ids_flora.add(hive_id_str)
+                # エッジは (ハチID, 幼虫ID, カウント)
+                edges_flora.append((bee.id, hive_id_str, d[1]))
 
-    edges = []
-    pair_added = []
+    df_adj_flora = create_caring_adj_matrix(edges_flora, bee_ids_flora, hive_ids_flora)
+    export_to_csv(df_adj_flora, path_out, "Caring_AdjMatrix_Flora.csv")
+
+    # --- コロニー 2 (No Flora) の処理 ---
+    edges_noflora = []
+    bee_ids_noflora = set()
+    hive_ids_noflora = set()
+    for bee in bees_2.values():
+        data_caring = collections.Counter([e.id_hive for e in bee.event_caring if e.duration > th]).most_common()
+        if len(data_caring) != 0:
+            bee_ids_noflora.add(bee.id)
+            for d in data_caring:
+                hive_id_str = str(d[0])
+                hive_ids_noflora.add(hive_id_str)
+                edges_noflora.append((bee.id, hive_id_str, d[1]))
+
+    df_adj_noflora = create_caring_adj_matrix(edges_noflora, bee_ids_noflora, hive_ids_noflora)
+    export_to_csv(df_adj_noflora, path_out, "Caring_AdjMatrix_NoFlora.csv")
+    
+    z_min_combined = 0
+    z_max_combined = 0
+    if df_adj_flora.size > 0:
+        z_max_combined = max(z_max_combined, df_adj_flora.values.max())
+    if df_adj_noflora.size > 0:
+        z_max_combined = max(z_max_combined, df_adj_noflora.values.max())
+
+    # --- go.Heatmap オブジェクトの作成 ---
+
+    # Flora群のヒートマップ
+    heatmap_trace_flora = go.Heatmap(
+        z=df_adj_flora.values,
+        x=df_adj_flora.columns, # 幼虫ID
+        y=df_adj_flora.index,   # ハチID
+        colorscale='Blues',
+        zmin=z_min_combined,
+        zmax=z_max_combined,
+        texttemplate="%{z}",
+        showscale=False 
+    )
+
+    # No Flora群のヒートマップ
+    heatmap_trace_noflora = go.Heatmap(
+        z=df_adj_noflora.values,
+        x=df_adj_noflora.columns, # 幼虫ID
+        y=df_adj_noflora.index,   # ハチID
+        colorscale='Blues',
+        zmin=z_min_combined,
+        zmax=z_max_combined,
+        texttemplate="%{z}",
+        showscale=True,
+        colorbar=dict(
+            title=dict(
+                text="相互作用回数",
+                side="right"
+            ),
+            x=1.05, 
+            len=0.9
+        )
+    )
+
+    # --- サブプロットの統合 ---
+    combined_fig = make_subplots(
+        rows=1, 
+        cols=2, 
+        subplot_titles=("A. Flora群: ハチと幼虫の相互作用", "B. No Flora群: ハチと幼虫の相互作用"),
+        shared_yaxes=False,
+        shared_xaxes=False
+    )
+
+    # トレースの追加
+    combined_fig.add_trace(heatmap_trace_flora, row=1, col=1)
+    combined_fig.add_trace(heatmap_trace_noflora, row=1, col=2)
+    
+    combined_fig.update_xaxes(title_text="幼虫ID", row=1, col=1)
+    combined_fig.update_yaxes(title_text="ハチID", row=1, col=1)
+    combined_fig.update_xaxes(title_text="幼虫ID", row=1, col=2)
+    combined_fig.update_yaxes(title_text="ハチID", row=1, col=2)
+    
+    combined_fig.update_layout(
+        title_text="ハチと幼虫の相互作用",
+        title_x=0.5,
+        # 共通のカラースケール
+        coloraxis=dict(colorscale='Blues', cmin=z_min_combined, cmax=z_max_combined)
+    )
+    figs["Caring_Heatmap"] = combined_fig
+    
+    edges_flora = []
+    pair_added_flora = []
     for bee in bees_1.values():
         data_trophallaxis = collections.Counter([e.id_pair for e in bee.event_trophallaxis if e.duration > th]).most_common()
         if len(data_trophallaxis) != 0:
             for d in data_trophallaxis:
-                if set((bee.id, d[0])) not in pair_added:
-                    pair_added.append(set((bee.id, d[0])))
-                    edges.append((bee.id, d[0], d[1]))
-    fig_trophallaxis_network_flora = gen_network(edges, "AAA")
-    edges = []
-    pair_added = []
+                if set((bee.id, d[0])) not in pair_added_flora:
+                    pair_added_flora.append(set((bee.id, d[0])))
+                    edges_flora.append((bee.id, d[0], d[1]))
+    edges_noflora = []
+    pair_added_noflora = []
     for bee in bees_2.values():
         data_trophallaxis = collections.Counter([e.id_pair for e in bee.event_trophallaxis if e.duration > th]).most_common()
         if len(data_trophallaxis) != 0:
             for d in data_trophallaxis:
-                if set((bee.id, d[0])) not in pair_added:
-                    pair_added.append(set((bee.id, d[0])))
-                    edges.append((bee.id, d[0], d[1]))
-    fig_trophallaxis_network_noflora = gen_network(edges, "AAA")
+                if set((bee.id, d[0])) not in pair_added_noflora:
+                    pair_added_noflora.append(set((bee.id, d[0])))
+                    edges_noflora.append((bee.id, d[0], d[1]))   
+                    
+    if edges_flora:
+        df_edges_flora_t = pd.DataFrame(edges_flora, columns=["BeeID_A", "BeeID_B", "Count"])
+        export_to_csv(df_edges_flora_t, path_out, "Trophallaxis_Edges_Flora.csv")
+    if edges_noflora:
+        df_edges_noflora_t = pd.DataFrame(edges_noflora, columns=["BeeID_A", "BeeID_B", "Count"])
+        export_to_csv(df_edges_noflora_t, path_out, "Trophallaxis_Edges_NoFlora.csv")                    
+
+    all_trophallaxis_weights = [e[2] for e in edges_flora] + [e[2] for e in edges_noflora]
+    global_max_trophallaxis_weight = max(max(all_trophallaxis_weights) if all_trophallaxis_weights else 10000, 3000)
+    #global_max_trophallaxis_weight = 10000
+    fig_trophallaxis_network_flora = gen_network(edges_flora, global_max_trophallaxis_weight, "AAA")
+    fig_trophallaxis_network_noflora = gen_network(edges_noflora, global_max_trophallaxis_weight, "AAA")
     combined_fig = make_subplots(
         rows=1, 
         cols=2, 
@@ -545,6 +752,114 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     )
     combined_fig.write_html(f"{path_out}Trophallaxis_Network.html")
     figs["Trophallaxis_Network"] = combined_fig
+
+    edges_flora = []
+    pair_added = []
+    for bee in bees_1.values():
+        data_trophallaxis = collections.Counter([e.id_pair for e in bee.event_trophallaxis if e.duration > th]).most_common()
+        if len(data_trophallaxis) != 0:
+            for d in data_trophallaxis:
+                if set((bee.id, d[0])) not in pair_added:
+                    pair_added.append(set((bee.id, d[0])))
+                    edges_flora.append((bee.id, d[0], d[1]))
+
+    bee_ids_flora = set(bees_1.keys()) 
+    df_adj_flora = create_adj_matrix(edges_flora, bee_ids_flora)
+    export_to_csv(df_adj_flora, path_out, "Trophallaxis_AdjMatrix_Flora.csv")
+    
+    # --- コロニー 2 (No Flora) の処理 ---
+    edges_noflora = []
+    pair_added = []
+    for bee in bees_2.values():
+        data_trophallaxis = collections.Counter([e.id_pair for e in bee.event_trophallaxis if e.duration > th]).most_common()
+        if len(data_trophallaxis) != 0:
+            for d in data_trophallaxis:
+                if set((bee.id, d[0])) not in pair_added:
+                    pair_added.append(set((bee.id, d[0])))
+                    edges_noflora.append((bee.id, d[0], d[1]))
+
+    bee_ids_noflora = set(bees_2.keys())
+    df_adj_noflora = create_adj_matrix(edges_noflora, bee_ids_noflora)
+    export_to_csv(df_adj_noflora, path_out, "Trophallaxis_AdjMatrix_NoFlora.csv")
+
+
+    # --- 共通の z 軸範囲の決定 ---
+    # 2つのヒートマップで色を比較可能にするため、共通の zmin/zmax を設定することが推奨されます。
+    z_min_combined = 0
+    z_max_combined = max(df_adj_flora.values.max(), df_adj_noflora.values.max())
+
+    # --- go.Heatmap オブジェクトの作成 ---
+
+    # Flora群のヒートマップ
+    heatmap_trace_flora = go.Heatmap(
+        z=df_adj_flora.values,
+        x=df_adj_flora.columns,
+        y=df_adj_flora.index,
+        colorscale='Blues',
+        zmin=z_min_combined,
+        zmax=z_max_combined,
+        # カラーバーをサブプロットの統合時に個別に設定するため、ここでは非表示にします
+        texttemplate="%{z}",
+        showscale=False 
+    )
+
+    # No Flora群のヒートマップ
+    heatmap_trace_noflora = go.Heatmap(
+        z=df_adj_noflora.values,
+        x=df_adj_noflora.columns,
+        y=df_adj_noflora.index,
+        colorscale='Blues',
+        zmin=z_min_combined,
+        zmax=z_max_combined,
+        # 2つ目のヒートマップのカラーバーのみを表示・調整します
+        texttemplate="%{z}",
+        showscale=True,
+        colorbar=dict(
+            title=dict(
+                text="相互作用回数",
+                side="right"
+            ),
+            # ヒートマップのサイズに合わせて位置を調整 (標準的な位置: x=1.05)
+            x=1.05, 
+            len=0.9
+        )
+    )
+
+    # --- サブプロットの統合 ---
+    combined_fig = make_subplots(
+        rows=1, 
+        cols=2, 
+        subplot_titles=("A. Flora群", "B. No Flora群"),
+        shared_yaxes=False,
+        shared_xaxes=False
+    )
+
+    # トレースの追加
+    combined_fig.add_trace(heatmap_trace_flora, row=1, col=1)
+    combined_fig.add_trace(heatmap_trace_noflora, row=1, col=2)
+
+
+    # --- レイアウトの調整 ---
+
+    # 軸ラベルの設定（DataFrameのインデックス/カラムをそのまま使用）
+    combined_fig.update_xaxes(title_text="個体ID (受け手)", row=1, col=1)
+    combined_fig.update_yaxes(title_text="個体ID (渡し手)", row=1, col=1)
+    combined_fig.update_xaxes(title_text="個体ID (受け手)", row=1, col=2)
+    combined_fig.update_yaxes(title_text="個体ID (渡し手)", row=1, col=2)
+
+
+    combined_fig.update_layout(
+        title_text="個体間相互作用",
+        title_x=0.5,
+        # 共通のカラースケールを使用するため、カラー軸設定を一つに統一 (Layoutで共通設定)
+        coloraxis=dict(colorscale='Viridis', cmin=z_min_combined, cmax=z_max_combined)
+    )
+
+    # HTML出力
+    path_out = "" # 適切な出力パスに修正してください
+    combined_fig.write_html(f"{path_out}Trophallaxis_Heatmap.html")
+    # figs["Trophallaxis_Network"] の代わりに新しいキーを使用
+    figs["Trophallaxis_Heatmap"] = combined_fig    
     
     with open(f"{path_out}figs.pkl", mode='wb') as f:
         pickle.dump(figs, f)
@@ -552,7 +867,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
 
 if __name__ == "__main__":
     with open("/kpsort/output/flora2/data_graph.pkl", "rb") as f:
-        data_flora = pickle.load(f)
+        data_flora = pickle.load(f) 
     with open("/kpsort/output/noflora2/data_graph.pkl", "rb") as f:
         data_noflora = pickle.load(f)
         

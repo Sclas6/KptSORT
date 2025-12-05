@@ -14,6 +14,10 @@ from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 MODE_CANNY = 0
 MODE_DOG = 1
 
+BEHAVIOR_NOTHING = 0
+BEHAVIOR_CARING = 1
+BEHAVIOR_TROPHALLAXIS = 2
+
 @dataclass
 class CaringEvent:
     id_hive:    int
@@ -53,6 +57,12 @@ class Bee():
         self.nontrophallaxis_pairs = dict()
         self.pair_prevs = dict()
         self.event_trophallaxis = list()
+        self.statuses = list()
+        self.status = BEHAVIOR_NOTHING
+    
+    def update_status(self, status):
+        self.status = status
+        self.statuses.append(status)
     
     def update(self, pos, fps, reset=False):
         self.trajectory_deque.append(np.array(pos))
