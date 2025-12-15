@@ -390,6 +390,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
     Bee.distances_med = np.zeros((frames))
 
     nnds = []
+    scaling_factor = np.array([1.0 / width, 1.0 / height])
 
     c = 0
     prog = tqdm(desc="Generating", total=n_frames)
@@ -401,7 +402,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             ax.plot([i for i in range(len(nnds))], nnds)
             fig.suptitle("密集度の時系列変化")
             ax.set_title(f"平均密集度: {np.mean(nnds)}")
-            plt.savefig(f"{filename}.png")
+            plt.savefig(f"{filename}_.png")
             _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
             break
         if success:
@@ -421,33 +422,29 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                 kpt = np.reshape(individual[:6], (3,2))
                 pos_center_2 = np.mean(kpt[~np.isnan(kpt).any(axis=1), :], axis=0)
                 poses = np.append(poses, [pos_center_2], axis=0)
-            X = StandardScaler().fit_transform(poses)
-            db = DBSCAN(eps=0.3, min_samples=3)
+            #X = StandardScaler().fit_transform(poses)
+            X = poses * scaling_factor
+            #db = DBSCAN(eps=0.3, min_samples=3)
+            db = DBSCAN(eps=0.04, min_samples=3)
             db.fit(X)
             labels = db.labels_
             sum_densed[c] = len(labels[labels != -1])
             tree_total = KDTree(poses)
             D_max = np.sqrt(height**2 + width**2)
-            # 全個体 poses に対して、自身を除いた最近隣 (k=2) までの距離を計算
             distances_total, _ = tree_total.query(poses, k=2)
 
-            # NND_total の計算
             nnd_total = np.mean(distances_total[:, 1])
             nnd_norm = nnd_total / D_max
             cohesion_index = 1.0 - nnd_norm
             cohesion_index = np.power(cohesion_index, 2)
-            # NND_total の逆数
-            nnd_inverse_total = 1.0 / nnd_total
-
-            # ----------------------------------------------------
-            # 2. 複合密集度 CFI'' の計算
-            # ----------------------------------------------------
-            # sum_densed と N は DBSCAN結果から取得済みとする
             relative_density = sum_densed[c] / len(poses)
             CFI_double_prime = cohesion_index * relative_density
-            #CFI_double_prime = nnd_inverse_total * relative_density
 
             nnds.append(CFI_double_prime)
+            for i, p in enumerate(poses):
+                if db.labels_[i] != -1:
+                    cv2.circle(frame, (int(p[0]), int(p[1])), 17, (255, 255, 255), -1)       
+                    cv2.circle(frame, (int(p[0]), int(p[1])), 15, (255, 50, 100), -1)       
 
             trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
 
@@ -539,4 +536,5 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 if __name__ == "__main__":
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #19 20 22
-    kpdetect("flora1", "0902", model, 18, 10000)
+    kpdetect("noflora2", "0902", model, 20, 10000)
+    #kpdetect("resized_0430", "resized_0430", model, 22, 10000)

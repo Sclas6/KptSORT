@@ -93,7 +93,6 @@ fig_lines.add_trace(
 fig_lines.update_layout(xaxis={"range": [100 - .5, 1000 + .5]},
                         hovermode="x unified")
 
-# dashアプリケーションの定義
 asst_path = os.path.join(os.getcwd(), "assets")
 app = dash.Dash(__name__, assets_folder=asst_path, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -107,12 +106,12 @@ def serve_video_2():
     return send_from_directory(dir_2, path_video_2.name)
 
 SCROLLABLE_COL_STYLE = {
-    'maxHeight': '100vh',  # 画面の高さの85%を最大高さとする
-    'overflowY': 'auto',  # コンテンツがこの高さを超えた場合のみスクロールバーを表示
-    'padding': '15px',    # コンテンツと枠の間にパディングを追加
-    'border': '1px solid #ddd' # 見やすくするために枠線を追加（任意）
+    'maxHeight': '100vh',
+    'overflowY': 'auto',
+    'padding': '15px',
+    'border': '1px solid #ddd'
 }
-# レイアウトの定義
+
 app.layout = dbc.Container([
     dbc.Row(
             dbc.Col(
@@ -264,6 +263,5 @@ def frame_prev(_, index):
     ], index - 1
 
 
-# アプリケーションの実行
 if __name__ == '__main__':
     app.run(debug=True, port="8050")

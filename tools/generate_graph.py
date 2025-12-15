@@ -34,21 +34,17 @@ def create_caring_adj_matrix(edges, bee_ids, hive_ids):
     n_bees = len(sorted_bee_ids)
     n_hives = len(sorted_hive_ids)
     
-    # 行（ハチ） x 列（幼虫）の行列を初期化
     adj_matrix = np.zeros((n_bees, n_hives), dtype=int)
     
     for bee_id, hive_id, count in edges:
         i = bee_to_index.get(bee_id)
-        j = hive_to_index.get(hive_id) # hive_id は str(d[0]) で文字列になっているはず
+        j = hive_to_index.get(hive_id)
 
         if i is not None and j is not None:
-            # i (ハチ) から j (幼虫) への相互作用のカウントを格納
             adj_matrix[i, j] += count
             
-    # DataFrameに変換
     df_adj = pd.DataFrame(adj_matrix, index=sorted_bee_ids, columns=sorted_hive_ids)
     
-    # インデックスとカラムを確実に文字列型に変換（前回の要件）
     df_adj.index = df_adj.index.astype(str)
     df_adj.columns = df_adj.columns.astype(str)
     
@@ -62,35 +58,20 @@ def create_adj_matrix(edges, bee_ids):
     :param bee_ids: コロニー内の全てのハチのIDのリスト。
     :return: 相互作用の頻度を示すDataFrame形式の隣接行列。
     """
-    # 全てのユニークなIDのリストを取得し、ソートする（ヒートマップの軸を揃えるため）
     sorted_ids = sorted(list(bee_ids))
     id_to_index = {id: i for i, id in enumerate(sorted_ids)}
     n = len(sorted_ids)
     
-    # n x n のゼロ行列を初期化
     adj_matrix = np.zeros((n, n), dtype=int)
     
-    # エッジのデータを行列にマッピング
     for id1, id2, count in edges:
-        # 相互作用は対称的として処理（i->jとj->iの合計、または最大値を使うなど、定義による）
-        # ここでは、データは (A, B, count) の形でユニークなペアとして収集されていると仮定し、
-        # 行列上で対称な位置にカウントを追加します。
-        # ただし、データ収集ロジックから、(bee.id, d[0], d[1]) は一方向のカウントに基づいている
-        # 可能性もあるため、ここでは単純にデータで得られた場所にのみ配置します。
-        # ネットワーク分析では無向グラフとして扱うことが多いので、対称化の処理を入れておきます。
-        
-        # インデックスを取得
         i = id_to_index.get(id1)
         j = id_to_index.get(id2)
 
         if i is not None and j is not None:
-            # i から j への相互作用のカウント
             adj_matrix[i, j] += count
-            # j から i への相互作用のカウント（無向グラフとして扱う場合）
-            # もし有向グラフとして扱いたい場合は、この行をコメントアウトしてください。
             adj_matrix[j, i] += count
             
-    # DataFrameに変換（Plotlyのヒートマップに使いやすいように）
     df_adj = pd.DataFrame(adj_matrix, index=sorted_ids, columns=sorted_ids)
     df_adj.columns = df_adj.columns.astype(str)
     df_adj.index = df_adj.index.astype(str)
@@ -108,28 +89,23 @@ def gen_network(edges, max_weight_global, title=""):
     
     pos = nx.spring_layout(
         G, 
-        k=k_value * 1000,          # ノード間の理想的な距離を調整 (デフォルトは 1/sqrt(N))
-                           # 値を大きくするとノードが広がり、小さくすると密集する
-        iterations=100,    # イテレーション回数を増やすと、レイアウトがより安定する
-        seed=42,           # レイアウトの再現性のため乱数シードを設定
-        center=[0.5, 0.5], # グラフ全体がPlotlyの表示範囲の中央にくるように誘導
-        scale=0.8          # レイアウトの全体的なスケールを調整（描画範囲に収める）
+        k=k_value * 1000,
+                         
+        iterations=100,  
+        seed=42,         
+        center=[0.5, 0.5],
+        scale=0.8        
     )
 
-    # 4. 重みの正規化と線の太さの計算
     edge_weights_dict = nx.get_edge_attributes(G, 'weight')
     all_weights = list(edge_weights_dict.values())
     #max_weight = max(all_weights) if all_weights else 1
     
-    # 線の太さリスト（Plotlyではトレースごとに指定するため、少しロジックが変わる）
-    
-    # 5. エッジトレースの作成
     edge_traces = []
     
     for u, v, data in G.edges(data=True):
         weight = data['weight']
         
-        # 線の太さの正規化 (最大 5 にスケーリング)
         #scaled_width = (weight / max_weight) * 5
         scaled_width = (weight / max_weight_global) * 5
         
@@ -143,17 +119,14 @@ def gen_network(edges, max_weight_global, title=""):
             hoverinfo='text',
             mode='lines',
             opacity=0.7,
-            # ホバーテキスト: weightを10で割って元の回数に戻す
             text=[f"相互作用: {u} - {v}<br>回数: {weight/10:.1f}"],
             showlegend=False
         )
         edge_traces.append(trace_edge)
 
-    # 6. ノードトレースの作成
     node_x = [pos[node][0] for node in G.nodes()]
     node_y = [pos[node][1] for node in G.nodes()]
     
-    # ノードサイズはここでは一律（必要に応じてノードの接続数などで変更可能）
     node_sizes = [15] * len(G.nodes())
     node_text = [f"ID: {node}" for node in G.nodes()]
 
@@ -162,12 +135,12 @@ def gen_network(edges, max_weight_global, title=""):
         y=node_y,
         mode='markers+text',
         hoverinfo='text',
-        text=list(G.nodes()), # ノードIDを直接ラベルとして表示
+        text=list(G.nodes()),
         textposition='middle center',
         marker=dict(
             showscale=False,
             size=40,
-            color='white', # ノードの色を統一
+            color='white',
             line_width=2,
             line_color='black'
         ),
@@ -176,7 +149,6 @@ def gen_network(edges, max_weight_global, title=""):
         showlegend=False
     )
 
-    # 7. Figureオブジェクトの構築
     fig = go.Figure(data=edge_traces + [node_trace],
                     layout=go.Layout(
                         title={
@@ -228,7 +200,7 @@ def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, ed
         edge_y.extend([y0, y1, None])
         
         weight = edge[2].get('weight', 1)
-        hover_text_edges.append(f"相互作用の重み: {weight/10:.1f}") # 元の重みに戻して表示
+        hover_text_edges.append(f"相互作用の重み: {weight/10:.1f}")
     edge_traces = []
     current_edge_index = 0
 
@@ -248,7 +220,7 @@ def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, ed
             hoverinfo='text',
             mode='lines',
             opacity=0.7,
-            text=[f"{legend_left}: {edge[0]} - {legend_right}: {edge[1]}<br>重み: {weight/10:.1f}"], # 重みを元のスケールで表示
+            text=[f"{legend_left}: {edge[0]} - {legend_right}: {edge[1]}<br>重み: {weight/10:.1f}"],
             showlegend=False
         )
         edge_traces.append(trace_edge)
@@ -591,13 +563,11 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
             for d in data_caring:
                 hive_id_str = str(d[0])
                 hive_ids_flora.add(hive_id_str)
-                # エッジは (ハチID, 幼虫ID, カウント)
                 edges_flora.append((bee.id, hive_id_str, d[1]))
 
     df_adj_flora = create_caring_adj_matrix(edges_flora, bee_ids_flora, hive_ids_flora)
     export_to_csv(df_adj_flora, path_out, "Caring_AdjMatrix_Flora.csv")
 
-    # --- コロニー 2 (No Flora) の処理 ---
     edges_noflora = []
     bee_ids_noflora = set()
     hive_ids_noflora = set()
@@ -620,13 +590,10 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     if df_adj_noflora.size > 0:
         z_max_combined = max(z_max_combined, df_adj_noflora.values.max())
 
-    # --- go.Heatmap オブジェクトの作成 ---
-
-    # Flora群のヒートマップ
     heatmap_trace_flora = go.Heatmap(
         z=df_adj_flora.values,
-        x=df_adj_flora.columns, # 幼虫ID
-        y=df_adj_flora.index,   # ハチID
+        x=df_adj_flora.columns,
+        y=df_adj_flora.index,
         colorscale='Blues',
         zmin=z_min_combined,
         zmax=z_max_combined,
@@ -634,11 +601,10 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         showscale=False 
     )
 
-    # No Flora群のヒートマップ
     heatmap_trace_noflora = go.Heatmap(
         z=df_adj_noflora.values,
-        x=df_adj_noflora.columns, # 幼虫ID
-        y=df_adj_noflora.index,   # ハチID
+        x=df_adj_noflora.columns,
+        y=df_adj_noflora.index,
         colorscale='Blues',
         zmin=z_min_combined,
         zmax=z_max_combined,
@@ -654,7 +620,6 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         )
     )
 
-    # --- サブプロットの統合 ---
     combined_fig = make_subplots(
         rows=1, 
         cols=2, 
@@ -663,7 +628,6 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         shared_xaxes=False
     )
 
-    # トレースの追加
     combined_fig.add_trace(heatmap_trace_flora, row=1, col=1)
     combined_fig.add_trace(heatmap_trace_noflora, row=1, col=2)
     
@@ -675,7 +639,6 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     combined_fig.update_layout(
         title_text="ハチと幼虫の相互作用",
         title_x=0.5,
-        # 共通のカラースケール
         coloraxis=dict(colorscale='Blues', cmin=z_min_combined, cmax=z_max_combined)
     )
     figs["Caring_Heatmap"] = combined_fig
@@ -767,7 +730,6 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     df_adj_flora = create_adj_matrix(edges_flora, bee_ids_flora)
     export_to_csv(df_adj_flora, path_out, "Trophallaxis_AdjMatrix_Flora.csv")
     
-    # --- コロニー 2 (No Flora) の処理 ---
     edges_noflora = []
     pair_added = []
     for bee in bees_2.values():
@@ -782,15 +744,9 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     df_adj_noflora = create_adj_matrix(edges_noflora, bee_ids_noflora)
     export_to_csv(df_adj_noflora, path_out, "Trophallaxis_AdjMatrix_NoFlora.csv")
 
-
-    # --- 共通の z 軸範囲の決定 ---
-    # 2つのヒートマップで色を比較可能にするため、共通の zmin/zmax を設定することが推奨されます。
     z_min_combined = 0
     z_max_combined = max(df_adj_flora.values.max(), df_adj_noflora.values.max())
 
-    # --- go.Heatmap オブジェクトの作成 ---
-
-    # Flora群のヒートマップ
     heatmap_trace_flora = go.Heatmap(
         z=df_adj_flora.values,
         x=df_adj_flora.columns,
@@ -798,12 +754,10 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         colorscale='Blues',
         zmin=z_min_combined,
         zmax=z_max_combined,
-        # カラーバーをサブプロットの統合時に個別に設定するため、ここでは非表示にします
         texttemplate="%{z}",
         showscale=False 
     )
 
-    # No Flora群のヒートマップ
     heatmap_trace_noflora = go.Heatmap(
         z=df_adj_noflora.values,
         x=df_adj_noflora.columns,
@@ -811,7 +765,6 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         colorscale='Blues',
         zmin=z_min_combined,
         zmax=z_max_combined,
-        # 2つ目のヒートマップのカラーバーのみを表示・調整します
         texttemplate="%{z}",
         showscale=True,
         colorbar=dict(
@@ -819,13 +772,11 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
                 text="相互作用回数",
                 side="right"
             ),
-            # ヒートマップのサイズに合わせて位置を調整 (標準的な位置: x=1.05)
             x=1.05, 
             len=0.9
         )
     )
 
-    # --- サブプロットの統合 ---
     combined_fig = make_subplots(
         rows=1, 
         cols=2, 
@@ -834,14 +785,9 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         shared_xaxes=False
     )
 
-    # トレースの追加
     combined_fig.add_trace(heatmap_trace_flora, row=1, col=1)
     combined_fig.add_trace(heatmap_trace_noflora, row=1, col=2)
 
-
-    # --- レイアウトの調整 ---
-
-    # 軸ラベルの設定（DataFrameのインデックス/カラムをそのまま使用）
     combined_fig.update_xaxes(title_text="個体ID (受け手)", row=1, col=1)
     combined_fig.update_yaxes(title_text="個体ID (渡し手)", row=1, col=1)
     combined_fig.update_xaxes(title_text="個体ID (受け手)", row=1, col=2)
@@ -851,14 +797,11 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     combined_fig.update_layout(
         title_text="個体間相互作用",
         title_x=0.5,
-        # 共通のカラースケールを使用するため、カラー軸設定を一つに統一 (Layoutで共通設定)
         coloraxis=dict(colorscale='Viridis', cmin=z_min_combined, cmax=z_max_combined)
     )
 
-    # HTML出力
-    path_out = "" # 適切な出力パスに修正してください
+    path_out = ""
     combined_fig.write_html(f"{path_out}Trophallaxis_Heatmap.html")
-    # figs["Trophallaxis_Network"] の代わりに新しいキーを使用
     figs["Trophallaxis_Heatmap"] = combined_fig    
     
     with open(f"{path_out}figs.pkl", mode='wb') as f:

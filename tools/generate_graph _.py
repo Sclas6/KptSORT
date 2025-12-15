@@ -23,28 +23,23 @@ def gen_network(edges, title=""):
     
     pos = nx.spring_layout(
         G, 
-        k=k_value * 1000,          # ノード間の理想的な距離を調整 (デフォルトは 1/sqrt(N))
-                           # 値を大きくするとノードが広がり、小さくすると密集する
-        iterations=100,    # イテレーション回数を増やすと、レイアウトがより安定する
-        seed=42,           # レイアウトの再現性のため乱数シードを設定
-        center=[0.5, 0.5], # グラフ全体がPlotlyの表示範囲の中央にくるように誘導
-        scale=0.8          # レイアウトの全体的なスケールを調整（描画範囲に収める）
+        k=k_value * 1000,
+                         
+        iterations=100,  
+        seed=42,         
+        center=[0.5, 0.5],
+        scale=0.8        
     )
 
-    # 4. 重みの正規化と線の太さの計算
     edge_weights_dict = nx.get_edge_attributes(G, 'weight')
     all_weights = list(edge_weights_dict.values())
     max_weight = max(all_weights) if all_weights else 1
     
-    # 線の太さリスト（Plotlyではトレースごとに指定するため、少しロジックが変わる）
-    
-    # 5. エッジトレースの作成
     edge_traces = []
     
     for u, v, data in G.edges(data=True):
         weight = data['weight']
         
-        # 線の太さの正規化 (最大 5 にスケーリング)
         scaled_width = (weight / max_weight) * 5
         
         x0, y0 = pos[u]
@@ -57,17 +52,14 @@ def gen_network(edges, title=""):
             hoverinfo='text',
             mode='lines',
             opacity=0.7,
-            # ホバーテキスト: weightを10で割って元の回数に戻す
             text=[f"相互作用: {u} - {v}<br>回数: {weight/10:.1f}"],
             showlegend=False
         )
         edge_traces.append(trace_edge)
 
-    # 6. ノードトレースの作成
     node_x = [pos[node][0] for node in G.nodes()]
     node_y = [pos[node][1] for node in G.nodes()]
     
-    # ノードサイズはここでは一律（必要に応じてノードの接続数などで変更可能）
     node_sizes = [15] * len(G.nodes())
     node_text = [f"ID: {node}" for node in G.nodes()]
 
@@ -76,12 +68,12 @@ def gen_network(edges, title=""):
         y=node_y,
         mode='markers+text',
         hoverinfo='text',
-        text=list(G.nodes()), # ノードIDを直接ラベルとして表示
+        text=list(G.nodes()),
         textposition='middle center',
         marker=dict(
             showscale=False,
             size=40,
-            color='white', # ノードの色を統一
+            color='white',
             line_width=2,
             line_color='black'
         ),
@@ -90,7 +82,6 @@ def gen_network(edges, title=""):
         showlegend=False
     )
 
-    # 7. Figureオブジェクトの構築
     fig = go.Figure(data=edge_traces + [node_trace],
                     layout=go.Layout(
                         title={
@@ -135,14 +126,14 @@ def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, ed
     max_weight = max(nx.get_edge_attributes(B, 'weight').values()) if nx.get_edge_attributes(B, 'weight') else 1
 
     for edge in B.edges(data=True):
-        x0, y0 = pos[edge[0]] # ノードUの座標
-        x1, y1 = pos[edge[1]] # ノードVの座標
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
         
         edge_x.extend([x0, x1, None])
         edge_y.extend([y0, y1, None])
         
         weight = edge[2].get('weight', 1)
-        hover_text_edges.append(f"相互作用の重み: {weight/10:.1f}") # 元の重みに戻して表示
+        hover_text_edges.append(f"相互作用の重み: {weight/10:.1f}")
     edge_traces = []
     current_edge_index = 0
 
@@ -161,7 +152,7 @@ def gen_bipartite_network(nodes_left, legend_left, nodes_right, legend_right, ed
             hoverinfo='text',
             mode='lines',
             opacity=0.7,
-            text=[f"{legend_left}: {edge[0]} - {legend_right}: {edge[1]}<br>重み: {weight/10:.1f}"], # 重みを元のスケールで表示
+            text=[f"{legend_left}: {edge[0]} - {legend_right}: {edge[1]}<br>重み: {weight/10:.1f}"],
             showlegend=False
         )
         edge_traces.append(trace_edge)
