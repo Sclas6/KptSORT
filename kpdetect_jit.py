@@ -396,33 +396,37 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
     l_h2b = np.linalg.norm(bee.kpts[0:2] - [bee.kpts[2:4]])
     l_b2s = np.linalg.norm(bee.kpts[2:4] - [bee.kpts[4:6]])
     body_length = l_h2b + l_b2s
-    #print(body_length, l_h2b)
+
     if len(bee.care_hives) != 0:
         id = collections.Counter(bee.care_hives).most_common()[0][0]
         #id = bee.care_hives[0]
     if dist < 50:
         hive.hives[id].counter += 1
+
+    dur = int(fps/2)
     if (bee.mask[0] == '1') or (bee.mask[0] == '0' and bee.mask[2] == '0' and l_h2b < (body_length / 4)):
-        dur = int(fps/2)
         bee.care_frames += 1
         bee.care_hives.append(id)
+        if bee.noncare_frames > 0:
+            bee.noncare_frames = 0
         if bee.care_frames > dur:
             d_caring = True
             bee.feeding_hives[id] += 1
             bee.update_status(BEHAVIOR_CARING, frame)
-            if bee.noncare_frames == 0:
+            if bee.care_frames == dur + 1:
+                # print(f"start: {bee.id}")
                 for i in range(1, dur + 1):
                     bee.statuses[frame - i] = BEHAVIOR_CARING
 
     else:
         bee.noncare_frames += 1
-        if bee.noncare_frames > fps/2:
-            if bee.care_frames != 0:
+        if bee.noncare_frames > dur/2:
+            if bee.care_frames > dur:
+                # print(f"end: {bee.id}")
                 bee.event_caring.append(CaringEvent(id, bee.care_frames))
-            bee.noncare_frames = 0
             bee.care_frames = 0
             bee.care_hives.clear()
-            
+
     return d_caring , id
 
 
