@@ -13,6 +13,8 @@ import collections
 import numpy as np
 import pickle
 import statistics
+from typing import Dict
+import itertools
 import math
 import matplotlib.pyplot as plt
 import japanize_matplotlib
@@ -266,7 +268,7 @@ def gen_graphs(frames, bees: dict, colors: dict, path_out: str, th_frames: int=1
     plt.savefig(f"{path_out}exchanged_map.png")
 
 
-def detect_trophallaxis(d, trackers, bees: dict, fps=18):
+def detect_trophallaxis_(d, trackers, bees: dict, frame, fps=18):
     d_exchange = False
     if d[6] in [0, 3, 12]:
         bee: Bee = bees[d[-1]]
@@ -285,6 +287,7 @@ def detect_trophallaxis(d, trackers, bees: dict, fps=18):
                 #"""
                     if bee.trophallaxis_pairs[d2[-1]] > fps:
                         d_exchange = True
+                        bee.update_status(BEHAVIOR_TROPHALLAXIS, frame)
                         if d2[-1] not in bee.exchanging:
                             bee.exchanging[d2[-1]] = 1
                         else:
@@ -301,13 +304,97 @@ def detect_trophallaxis(d, trackers, bees: dict, fps=18):
                         
     return d_exchange
 
+def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, fps=18):
+    def _handle_proximity(bee_a: Bee, bee_b: Bee, frame, fps, d_exchanges_ref, index_a):
+        bee_a.trophallaxis_pairs[bee_b.id] = bee_a.trophallaxis_pairs.get(bee_b.id, 0) + 1
+        if bee_a.trophallaxis_pairs[bee_b.id] > fps:
+            d_exchanges_ref[index_a] = True
+            bee_a.update_status(BEHAVIOR_TROPHALLAXIS, frame)
+            bee_a.exchanging[bee_b.id] = bee_a.exchanging.get(bee_b.id, 0) + 1
+
+    def _handle_non_proximity_end(bee_a: Bee, bee_b: Bee, fps):
+        if bee_b.id in bee_a.trophallaxis_pairs:
+            bee_a.nontrophallaxis_pairs[bee_b.id] = bee_a.nontrophallaxis_pairs.get(bee_b.id, 0) + 1
+            if bee_a.nontrophallaxis_pairs[bee_b.id] > fps / 2:
+                trophallaxis_duration = bee_a.trophallaxis_pairs[bee_b.id]
+                bee_a.nontrophallaxis_pairs.pop(bee_b.id)
+                bee_a.event_trophallaxis.append(TrophallaxisEvent(0, int(bee_b.id), trophallaxis_duration))
+    
+    d_exchanges = np.zeros(len(trackers), bool)
+    heads = trackers[:, [0, 1, -1]]
+    masks = np.isnan(heads).any(axis=1)
+    heads = heads[~np.isnan(heads).any(axis=1), :]
+    X = heads[:, :2] * scaling_factor
+    db = DBSCAN(eps=0.02, min_samples=2)
+    db.fit(X)
+    labels = (l for l in db.labels_)
+    labels = np.array([-1 if b else next(labels) for b in (masks)])
+    
+    non_negative_mask = (labels != -1)
+
+    original_indices = np.arange(len(labels))
+    filtered_values = labels[non_negative_mask]
+    mapped_original_indices = original_indices[non_negative_mask]
+
+    unique_values = np.unique(filtered_values)
+
+    for val in unique_values:
+        indices_in_filtered = (filtered_values == val).nonzero()[0]
+        final_indices = mapped_original_indices[indices_in_filtered]
+        for i in itertools.combinations(final_indices, 2):
+            if trackers[i[0]][6] in [0, 3, 12] and trackers[i[1]][6] in [0, 3, 12]:
+                
+                vec1 = calc_unit_vector(np.nan_to_num(trackers[i[0]], nan = -1).filled(-1))
+                vec2 = calc_unit_vector(np.nan_to_num(trackers[i[1]], nan = -1).filled(-1))
+                rad = np.linalg.norm(vec1 + vec2)
+                
+                bee1 = bees[trackers[i[0]][-1]]
+                bee2 = bees[trackers[i[1]][-1]]
+                
+                if rad < 1.5:
+                    _handle_proximity(bee1, bee2, frame, fps, d_exchanges, i[0])
+                    _handle_proximity(bee2, bee1, frame, fps, d_exchanges, i[1])
+
+                elif bee2.id in bee1.trophallaxis_pairs or bee1.id in bee2.trophallaxis_pairs:
+                    _handle_non_proximity_end(bee1, bee2, fps)
+                    _handle_non_proximity_end(bee2, bee1, fps)
+
+    """
+    VECTOR_LENGTH_PIXELS = 40 # 描画する矢印の長さ（ピクセル単位）
+    VECTOR_COLOR = (0, 0, 255) # 赤 (BGR)
+    ARROW_SIZE = 10 # 矢じりの長さ
+
+    for row in trackers:
+        if np.any(np.isnan(row)):
+            continue
+        start_x = int(row[4])
+        start_y = int(row[5])
+        start_point = (start_x, start_y)
+        unit_vector = calc_unit_vector(row)
+        if unit_vector is not None:
+            end_x = int(start_x + unit_vector[0] * VECTOR_LENGTH_PIXELS)
+            end_y = int(start_y + unit_vector[1] * VECTOR_LENGTH_PIXELS)
+            end_point = (end_x, end_y)
+            cv2.line(frame, start_point, end_point, VECTOR_COLOR, 2)
+            angle = np.arctan2(unit_vector[1], unit_vector[0])
+            arrow_angle_left = angle - np.pi / 6 
+            arrow_left_x = int(end_x - ARROW_SIZE * np.cos(arrow_angle_left))
+            arrow_left_y = int(end_y - ARROW_SIZE * np.sin(arrow_angle_left))
+            cv2.line(frame, end_point, (arrow_left_x, arrow_left_y), VECTOR_COLOR, 2)
+            arrow_angle_right = angle + np.pi / 6
+            arrow_right_x = int(end_x - ARROW_SIZE * np.cos(arrow_angle_right))
+            arrow_right_y = int(end_y - ARROW_SIZE * np.sin(arrow_angle_right))
+            cv2.line(frame, end_point, (arrow_right_x, arrow_right_y), VECTOR_COLOR, 2)
+    """
+    return {id: b for id, b in zip(trackers[:, -1].astype(int), d_exchanges)}
+
 
 #@njit
-def detect_caring(d, mask, hive: AssignBeeHive, img, bee: Bee, fps=18):
+def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
     d_caring = False
-    id, dist = hive.pos2id((d[2], d[2 + 1]), img)
-    l_h2b = np.linalg.norm(d[0:2] - [d[2:4]])
-    l_b2s = np.linalg.norm(d[2:4] - [d[4:6]])
+    id, dist = hive.pos2id((bee.kpts[2], bee.kpts[2 + 1]), img)
+    l_h2b = np.linalg.norm(bee.kpts[0:2] - [bee.kpts[2:4]])
+    l_b2s = np.linalg.norm(bee.kpts[2:4] - [bee.kpts[4:6]])
     body_length = l_h2b + l_b2s
     #print(body_length, l_h2b)
     if len(bee.care_hives) != 0:
@@ -315,13 +402,18 @@ def detect_caring(d, mask, hive: AssignBeeHive, img, bee: Bee, fps=18):
         #id = bee.care_hives[0]
     if dist < 50:
         hive.hives[id].counter += 1
-    if (mask[0] == '1') or (mask[0] == '0' and mask[2] == '0' and l_h2b < (body_length / 4)):
-        dur = fps
+    if (bee.mask[0] == '1') or (bee.mask[0] == '0' and bee.mask[2] == '0' and l_h2b < (body_length / 4)):
+        dur = int(fps/2)
         bee.care_frames += 1
         bee.care_hives.append(id)
-        if bee.care_frames > dur/2:
+        if bee.care_frames > dur:
             d_caring = True
             bee.feeding_hives[id] += 1
+            bee.update_status(BEHAVIOR_CARING, frame)
+            if bee.noncare_frames == 0:
+                for i in range(1, dur + 1):
+                    bee.statuses[frame - i] = BEHAVIOR_CARING
+
     else:
         bee.noncare_frames += 1
         if bee.noncare_frames > fps/2:
@@ -330,18 +422,20 @@ def detect_caring(d, mask, hive: AssignBeeHive, img, bee: Bee, fps=18):
             bee.noncare_frames = 0
             bee.care_frames = 0
             bee.care_hives.clear()
-    
+            
     return d_caring , id
 
 
-def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75):    
+def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, draw_trajectory=False):
     if not os.path.exists(f"output/{filename}/"):
         os.makedirs(f"output/{filename}/")    
-    def _save(hive, img_hive_sam, c, bees, colors, img_tracklets):
+    def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets):
+        for bee in bees.values():
+            np.savetxt(f'bees/bee_{bee.id}.txt', bee.statuses, fmt='%d')
         #print(np.sum(Bee.exchanged_series))
         #print(np.sum(Bee.hived_series))
         gen_hive_heatmap(hive, img_hive_sam, f"output/{filename}/")
-        #gen_graphs(c, bees, colors, f"output/{filename}/", 100)
+        gen_graphs(c, bees, colors, f"output/{filename}/", 100)
         save_result(f"output/{filename}/", bees)
         
         img_tracklets = cv2.cvtColor(img_tracklets, cv2.COLOR_BGR2BGRA)
@@ -374,7 +468,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
     sum_densed = np.zeros((n_frames + 1))
 
     mot_tracker = Sort(oks_threshold=0.00001, individuals=n_tracks)
-    bees = dict()
+    bees: dict[int, Bee] = dict()
 
     hive:AssignBeeHive
     with open(f"sources/hives/{hivename}/{hivename}.pickle", "rb") as f:
@@ -441,11 +535,12 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             CFI_double_prime = cohesion_index * relative_density
 
             nnds.append(CFI_double_prime)
+            """
             for i, p in enumerate(poses):
                 if db.labels_[i] != -1:
                     cv2.circle(frame, (int(p[0]), int(p[1])), 17, (255, 255, 255), -1)       
                     cv2.circle(frame, (int(p[0]), int(p[1])), 15, (255, 50, 100), -1)       
-
+            """
             trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
 
             # DENSED INDIVISUALS
@@ -471,25 +566,30 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     
                 pos_center = np.mean(kpt[~np.isnan(kpt).any(axis=1), :], axis=0)
                 if d_int[-1] not in bees:
-                    bees[d_int[-1]] = Bee(id=d_int[-1], pos=pos_center, length=200)
+                    bees[d_int[-1]] = Bee(d_int[-1], d_int[:6], mask, pos_center, n_frames, length_trajectory=200)
                     #bees[d_int[-1]] = Bee(id=d_int[-1], pos=pos_center, length=n_frames - 1)
                     bees[d_int[-1]].feeding_hives = {h: 0 for h in hive.hives.keys()}
                 else:
                     r = d_int[-1] in respowns
-                    bees[d_int[-1]].update(pos=pos_center, fps=fps, reset=r)
-                    bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
+                    bees[d_int[-1]].update(d_int[:6], mask, pos_center, fps=fps, reset=r)
+                    if draw_trajectory:
+                        bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
                     bees[d_int[-1]].tracked_frames += 1
+                    
+            d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=fps)
+                    
+            for i, bee in enumerate(bees.values()):
+                if bee.id not in trackers[:, -1]:
+                    continue
+                d_exchange = d_exchanges[bee.id]
+                               
+                for j in range(0, 5, 2):
+                    cv2.circle(frame, (bee.kpts[j], bee.kpts[j + 1]), 2, colors[bee.id], -1)
+                if not d_exchange:
+                    d_caring, _ = detect_caring(bee, hive, img_hive_sam, c, fps)
+                else: d_caring = False
 
-                d_exchange = detect_trophallaxis(d_int, trackers, bees, fps)          
-                d_caring, id_hive = detect_caring(d_int, mask, hive, img_hive_sam, bees[d_int[-1]], fps)
-                
-                if d_caring:
-                    bees[d_int[-1]].update_status(BEHAVIOR_CARING)
-                elif d_exchange:
-                    bees[d_int[-1]].update_status(BEHAVIOR_TROPHALLAXIS)
-                else:
-                    bees[d_int[-1]].update_status(BEHAVIOR_NOTHING) 
-
+                """
                 for i in range(0, len(d_int[:3 * 2 + 1]), 2):
                     if i > 4: break
                     if mask[i] != "1":
@@ -497,19 +597,22 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                         if i == 0:
                             pass
                             #cv2.circle(frame, (d_int[i], d_int[i + 1]), 8, colors[d_int[-1]], 8)
+                """
 
-                cv2.putText(frame, str(d_int[-1]), (d_int[0], d_int[1]), cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 0), 5, cv2.LINE_AA)
-                cv2.putText(frame, str(d_int[-1]), (d_int[0], d_int[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d_int[-1]], 4, cv2.LINE_AA)
+                cv2.putText(frame, str(bee.id), (bee.kpts[0], bee.kpts[1]), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 0), 3, cv2.LINE_AA)
+                cv2.putText(frame, str(bee.id), (bee.kpts[0], bee.kpts[1]), cv2.FONT_HERSHEY_PLAIN, 3, colors[bee.id], 2, cv2.LINE_AA)
+
                 if d_caring:
-                    cv2.circle(frame, (d_int[2], d_int[3]), 10, (0, 0, 255), 10)
-                    cv2.putText(frame, f"  @{str(id_hive)}", (d_int[0], d_int[1]), cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 0), 5, cv2.LINE_AA)
-                    cv2.putText(frame, f"  @{str(id_hive)}", (d_int[0], d_int[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[d_int[-1]], 4, cv2.LINE_AA)
+                    cv2.circle(frame, bee.kpts_center.astype(int), 8, (255, 255, 255), -1)
+                    cv2.circle(frame, bee.kpts_center.astype(int), 7, (0, 0, 255), -1)
+                    #cv2.putText(frame, f"  @{str(id_hive)}", (d_int[0], d_int[1]), cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 0), 5, cv2.LINE_AA)
+                    #cv2.putText(frame, f"  @{str(id_hive)}", (d_int[0], d_int[1]), cv2.FONT_HERSHEY_PLAIN, 5, colors[bee.id], 4, cv2.LINE_AA)
                     Bee.hived_series[c] += 1
                 if d_exchange:
-                    #cv2.circle(frame, (d_int[0], d_int[1]), 10, (0, 255, 0), 10)
+                    cv2.circle(frame, bee.kpts_center.astype(int), 8, (255, 255, 255), -1)
+                    cv2.circle(frame, bee.kpts_center.astype(int), 7, (0, 255, 0), -1)
                     Bee.exchanged_series[c] += 1
-            #print(bees.keys())
-            #print(poses.tolist())
+
             if len([bees[id].distance for id in bees if id in trackers[:, -1]and bees[id].distance != 0]) != 0 and c != 0:
                 Bee.distances_avg[c] = np.mean([bees[id].distance for id in bees if id in trackers[:, -1] and bees[id].distance != 0])
                 Bee.distances_med[c] = np.median([bees[id].distance for id in bees if id in trackers[:, -1]and bees[id].distance != 0])
@@ -520,6 +623,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     
             c += 1
             prog.update(1)
+
             """
             img_tracklets_frame = cv2.cvtColor(img_tracklets, cv2.COLOR_BGR2BGRA)
             img_tracklets_frame[np.all(img_tracklets_frame == [0, 0, 0, 255], axis=2), 3] = 0
@@ -536,5 +640,5 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 if __name__ == "__main__":
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #19 20 22
-    kpdetect("noflora2", "0902", model, 20, 10000)
-    #kpdetect("resized_0430", "resized_0430", model, 22, 10000)
+    #kpdetect("noflora2", "0902", model, 20, 10000)
+    kpdetect("resized_0430", "resized_0430", model, 22, 100000)

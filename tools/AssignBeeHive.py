@@ -34,15 +34,18 @@ class Bee():
     exchanged_series: np.ndarray
     distances_avg: np.ndarray
     distances_med: np.ndarray
-    def __init__(self, id: int, pos: tuple, length: int=10):
+    def __init__(self, id: int, kpts: np.ndarray, mask: str, pos: tuple, frames, length_trajectory: int=10):
         self.id = id
         self.age = 0
         self.distance = 0
         self.distance_sum = 0
-        self.length = length
+        self.length = length_trajectory
         self.pos = pos
+        self.kpts = kpts
+        self.kpts_center = pos
+        self.mask = mask
         #self.trajectory = pl.DataFrame({"y": [pos[0]], "x": [pos[1]]})
-        self.trajectory_deque = deque([np.array(pos)], maxlen=length)
+        self.trajectory_deque = deque([np.array(pos)], maxlen=length_trajectory)
 
         self.tracked_frames = 0
         self.feeding_hives = dict()
@@ -57,14 +60,17 @@ class Bee():
         self.nontrophallaxis_pairs = dict()
         self.pair_prevs = dict()
         self.event_trophallaxis = list()
-        self.statuses = list()
+        self.statuses = np.zeros(frames + 1)
         self.status = BEHAVIOR_NOTHING
     
-    def update_status(self, status):
+    def update_status(self, status, frame):
         self.status = status
-        self.statuses.append(status)
+        self.statuses[frame] = status
     
-    def update(self, pos, fps, reset=False):
+    def update(self, kpts, mask, pos, fps, reset=False):
+        self.kpts = kpts
+        self.mask = mask
+        self.kpts_center = pos
         self.trajectory_deque.append(np.array(pos))
         self.age += 1
         if reset:
