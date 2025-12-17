@@ -619,6 +619,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     
             for i, bee in enumerate(bees.values()):
                 if bee.id not in trackers[:, -1]:
+                    bee.statuses[c] = -1
                     continue
                 d_exchange = d_exchanges[bee.id]
                                
