@@ -305,20 +305,35 @@ def detect_trophallaxis_(d, trackers, bees: dict, frame, fps=18):
     return d_exchange
 
 def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, fps=18):
-    def _handle_proximity(bee_a: Bee, bee_b: Bee, frame, fps, d_exchanges_ref, index_a):
+    start_dur = int(fps) 
+    noise_dur = int(fps / 2)
+    active_pairs_this_frame = set()
+    def _handle_proximity(bee_a: Bee, bee_b: Bee, frame, d_exchanges_ref, index_a):
         bee_a.trophallaxis_pairs[bee_b.id] = bee_a.trophallaxis_pairs.get(bee_b.id, 0) + 1
-        if bee_a.trophallaxis_pairs[bee_b.id] > fps:
+        bee_a.nontrophallaxis_pairs[bee_b.id] = 0
+        if bee_a.trophallaxis_pairs[bee_b.id] > start_dur:
+            active_pairs_this_frame.add(tuple(sorted((bee_a.id, bee_b.id))))
             d_exchanges_ref[index_a] = True
             bee_a.update_status(BEHAVIOR_TROPHALLAXIS, frame)
             bee_a.exchanging[bee_b.id] = bee_a.exchanging.get(bee_b.id, 0) + 1
+            
+            if bee_a.trophallaxis_pairs[bee_b.id] == start_dur + 1:
+                print(f"trophallaxis start: {bee_a.id} with {bee_b.id}")
+                for i in range(1, start_dur + 1):
+                    bee_a.statuses[frame - i] = BEHAVIOR_TROPHALLAXIS
 
-    def _handle_non_proximity_end(bee_a: Bee, bee_b: Bee, fps):
-        if bee_b.id in bee_a.trophallaxis_pairs:
+    def _handle_non_proximity_end(bee_a: Bee, bee_b: Bee, frame):
+        if bee_a.trophallaxis_pairs[bee_b.id] > start_dur:
+            # print(f"handling... {bee_a.id} & {bee_b.id}")
             bee_a.nontrophallaxis_pairs[bee_b.id] = bee_a.nontrophallaxis_pairs.get(bee_b.id, 0) + 1
-            if bee_a.nontrophallaxis_pairs[bee_b.id] > fps / 2:
-                trophallaxis_duration = bee_a.trophallaxis_pairs[bee_b.id]
+            if bee_a.nontrophallaxis_pairs[bee_b.id] <= noise_dur:
+                bee_a.update_status(BEHAVIOR_TROPHALLAXIS, frame)
+                bee_a.trophallaxis_pairs[bee_b.id] += 1
+            else:
+                print(f"trophallaxis end: {bee_a.id} with {bee_b.id}")
+                bee_a.event_trophallaxis.append(TrophallaxisEvent(0, int(bee_b.id), bee_a.trophallaxis_pairs[bee_b.id]))
+                bee_a.trophallaxis_pairs.pop(bee_b.id)
                 bee_a.nontrophallaxis_pairs.pop(bee_b.id)
-                bee_a.event_trophallaxis.append(TrophallaxisEvent(0, int(bee_b.id), trophallaxis_duration))
     
     d_exchanges = np.zeros(len(trackers), bool)
     heads = trackers[:, [0, 1, -1]]
@@ -343,21 +358,30 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
         final_indices = mapped_original_indices[indices_in_filtered]
         for i in itertools.combinations(final_indices, 2):
             if trackers[i[0]][6] in [0, 3, 12] and trackers[i[1]][6] in [0, 3, 12]:
-                
                 vec1 = calc_unit_vector(np.nan_to_num(trackers[i[0]], nan = -1).filled(-1))
                 vec2 = calc_unit_vector(np.nan_to_num(trackers[i[1]], nan = -1).filled(-1))
                 rad = np.linalg.norm(vec1 + vec2)
                 
                 bee1 = bees[trackers[i[0]][-1]]
                 bee2 = bees[trackers[i[1]][-1]]
-                
                 if rad < 1.5:
-                    _handle_proximity(bee1, bee2, frame, fps, d_exchanges, i[0])
-                    _handle_proximity(bee2, bee1, frame, fps, d_exchanges, i[1])
+                    _handle_proximity(bee1, bee2, frame, d_exchanges, i[0])
+                    _handle_proximity(bee2, bee1, frame, d_exchanges, i[1])
 
-                elif bee2.id in bee1.trophallaxis_pairs or bee1.id in bee2.trophallaxis_pairs:
-                    _handle_non_proximity_end(bee1, bee2, fps)
-                    _handle_non_proximity_end(bee2, bee1, fps)
+                #elif bee2.id in bee1.trophallaxis_pairs and bee1.id in bee2.trophallaxis_pairs:
+                #    if bee1.id == 12:
+                #        print("nontrophallaxis")
+                #    _handle_non_proximity_end(bee1, bee2, frame)
+                #    _handle_non_proximity_end(bee2, bee1, frame)
+
+    for bee in bees.values():
+        ongoing_partners = list(bee.trophallaxis_pairs.keys())
+        for partner_id in ongoing_partners:
+            if tuple(sorted((bee.id, partner_id))) not in active_pairs_this_frame:
+                if partner_id in bees:
+                    _handle_non_proximity_end(bee, bees[partner_id], frame)
+        
+                    
 
     """
     VECTOR_LENGTH_PIXELS = 40 # 描画する矢印の長さ（ピクセル単位）
@@ -392,6 +416,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
 #@njit
 def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
     d_caring = False
+    dur = int(fps/2)
     id, dist = hive.pos2id((bee.kpts[2], bee.kpts[2 + 1]), img)
     l_h2b = np.linalg.norm(bee.kpts[0:2] - [bee.kpts[2:4]])
     l_b2s = np.linalg.norm(bee.kpts[2:4] - [bee.kpts[4:6]])
@@ -399,16 +424,15 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
 
     if len(bee.care_hives) != 0:
         id = collections.Counter(bee.care_hives).most_common()[0][0]
-        #id = bee.care_hives[0]
     if dist < 50:
         hive.hives[id].counter += 1
 
-    dur = int(fps/2)
-    if (bee.mask[0] == '1') or (bee.mask[0] == '0' and bee.mask[2] == '0' and l_h2b < (body_length / 4)):
+    is_detected = (bee.mask[0] == '1') or (bee.mask[0] == '0' and bee.mask[2] == '0' and l_h2b < (body_length / 4))
+    if is_detected:
         bee.care_frames += 1
         bee.care_hives.append(id)
-        if bee.noncare_frames > 0:
-            bee.noncare_frames = 0
+        bee.noncare_frames = 0 #
+        
         if bee.care_frames > dur:
             d_caring = True
             bee.feeding_hives[id] += 1
@@ -417,13 +441,19 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
                 # print(f"start: {bee.id}")
                 for i in range(1, dur + 1):
                     bee.statuses[frame - i] = BEHAVIOR_CARING
-
     else:
-        bee.noncare_frames += 1
-        if bee.noncare_frames > dur/2:
-            if bee.care_frames > dur:
+        if bee.care_frames > dur:
+            bee.noncare_frames += 1
+            if bee.noncare_frames <= dur:
+                bee.update_status(BEHAVIOR_CARING, frame)
+                bee.care_frames += 1
+            else:
                 # print(f"end: {bee.id}")
                 bee.event_caring.append(CaringEvent(id, bee.care_frames))
+                bee.care_frames = 0
+                bee.noncare_frames = 0
+                bee.care_hives.clear()
+        else:
             bee.care_frames = 0
             bee.care_hives.clear()
 
