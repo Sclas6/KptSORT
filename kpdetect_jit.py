@@ -318,7 +318,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
             bee_a.exchanging[bee_b.id] = bee_a.exchanging.get(bee_b.id, 0) + 1
             
             if bee_a.trophallaxis_pairs[bee_b.id] == start_dur + 1:
-                print(f"trophallaxis start: {bee_a.id} with {bee_b.id}")
+                # print(f"trophallaxis start: {bee_a.id} with {bee_b.id}")
                 for i in range(1, start_dur + 1):
                     bee_a.statuses[frame - i] = BEHAVIOR_TROPHALLAXIS
 
@@ -330,7 +330,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
                 bee_a.update_status(BEHAVIOR_TROPHALLAXIS, frame)
                 bee_a.trophallaxis_pairs[bee_b.id] += 1
             else:
-                print(f"trophallaxis end: {bee_a.id} with {bee_b.id}")
+                # print(f"trophallaxis end: {bee_a.id} with {bee_b.id}")
                 bee_a.event_trophallaxis.append(TrophallaxisEvent(0, int(bee_b.id), bee_a.trophallaxis_pairs[bee_b.id]))
                 bee_a.trophallaxis_pairs.pop(bee_b.id)
                 bee_a.nontrophallaxis_pairs.pop(bee_b.id)
@@ -444,17 +444,22 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
     else:
         if bee.care_frames > dur:
             bee.noncare_frames += 1
-            if bee.noncare_frames <= dur:
+            if bee.noncare_frames <= dur/2:
                 bee.update_status(BEHAVIOR_CARING, frame)
                 bee.care_frames += 1
             else:
                 # print(f"end: {bee.id}")
+                for i in range(1, bee.noncare_frames + 1):
+                    bee.statuses[bee.frame_cared[-i]] = BEHAVIOR_NOTHING
                 bee.event_caring.append(CaringEvent(id, bee.care_frames))
                 bee.care_frames = 0
                 bee.noncare_frames = 0
+                bee.frame_cared.clear()
                 bee.care_hives.clear()
         else:
             bee.care_frames = 0
+            bee.noncare_frames = 0
+            bee.frame_cared.clear()
             bee.care_hives.clear()
 
     return d_caring , id

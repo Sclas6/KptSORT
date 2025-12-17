@@ -55,6 +55,7 @@ class Bee():
         self.noncare_frames = 0
         self.care_hives = list()
         self.event_caring = list()
+        self.frame_cared: list[int] = list()
         
         self.trophallaxis_pairs = dict()
         self.nontrophallaxis_pairs = dict()
@@ -66,6 +67,7 @@ class Bee():
     def update_status(self, status, frame):
         self.status = status
         self.statuses[frame] = status
+        self.frame_cared.append(frame)
     
     def update(self, kpts, mask, pos, fps, reset=False):
         self.kpts = kpts
