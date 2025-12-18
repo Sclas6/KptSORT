@@ -25,6 +25,39 @@ from sklearn.cluster import DBSCAN
 
 from scipy.spatial import KDTree
 
+class Score():
+    def __init__(self, gt_count=22):
+        self.fp = 0
+        self.misses = 0
+        self.idsw = 0
+        self.g = 0
+        self.gt_count = gt_count
+        self.pre_ids = []
+        self.id_lifetimes = {}
+
+    def update(self, fp=0, misses=0, idsw=0, pre_ids=[], g=22):
+        self.fp += fp
+        self.misses += misses
+        self.idsw += idsw
+        self.pre_ids = pre_ids
+        self.g += g
+        
+        for p_id in pre_ids:
+            self.id_lifetimes[p_id] = self.id_lifetimes.get(p_id, 0) + 1
+
+    def calc_mota(self):
+        if self.g == 0: return 0
+        return 1 - ((self.fp + self.misses + self.idsw) / self.g)
+
+    def calc_average_lifetime(self, total_frames):
+        if not self.id_lifetimes: return 0
+        avg_life = sum(self.id_lifetimes.values()) / len(self.id_lifetimes)
+        stability = avg_life / total_frames
+        return stability
+
+    def get_max_id(self):
+        return max(self.id_lifetimes.keys()) if self.id_lifetimes else 0
+
 def check_overlap_2(individuals, threshold: int):
     fulls_sorted = list()
     fulls = dict()
@@ -340,7 +373,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
     masks = np.isnan(heads).any(axis=1)
     heads = heads[~np.isnan(heads).any(axis=1), :]
     X = heads[:, :2] * scaling_factor
-    db = DBSCAN(eps=0.02, min_samples=2)
+    db = DBSCAN(eps=0.015, min_samples=2)
     db.fit(X)
     labels = (l for l in db.labels_)
     labels = np.array([-1 if b else next(labels) for b in (masks)])
@@ -364,7 +397,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
                 
                 bee1 = bees[trackers[i[0]][-1]]
                 bee2 = bees[trackers[i[1]][-1]]
-                if rad < 1.5:
+                if rad < 1.4:
                     _handle_proximity(bee1, bee2, frame, d_exchanges, i[0])
                     _handle_proximity(bee2, bee1, frame, d_exchanges, i[1])
 
@@ -468,7 +501,8 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
 def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, draw_trajectory=False):
     if not os.path.exists(f"output/{filename}/"):
         os.makedirs(f"output/{filename}/")    
-    def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets):
+    def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets, score):
+        print(f"mota: {score.calc_mota():.4f} x: {score.calc_average_lifetime(c):.4f}")
         for bee in bees.values():
             np.savetxt(f'bees/bee_{bee.id}.txt', bee.statuses, fmt='%d')
         #print(np.sum(Bee.exchanged_series))
@@ -476,6 +510,9 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
         gen_hive_heatmap(hive, img_hive_sam, f"output/{filename}/")
         gen_graphs(c, bees, colors, f"output/{filename}/", 100)
         save_result(f"output/{filename}/", bees)
+        mota = 1 - (score.fp + score.misses + score.idsw) / score.g
+        print(f"MISSES: {score.misses}")
+        print(f"MOTA: {mota}")
         
         img_tracklets = cv2.cvtColor(img_tracklets, cv2.COLOR_BGR2BGRA)
         img_tracklets[np.all(img_tracklets == [0, 0, 0, 255], axis=2), 3] = 0
@@ -508,6 +545,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 
     mot_tracker = Sort(oks_threshold=0.00001, individuals=n_tracks)
     bees: dict[int, Bee] = dict()
+    score = Score()
 
     hive:AssignBeeHive
     with open(f"sources/hives/{hivename}/{hivename}.pickle", "rb") as f:
@@ -536,7 +574,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             fig.suptitle("密集度の時系列変化")
             ax.set_title(f"平均密集度: {np.mean(nnds)}")
             plt.savefig(f"{filename}_.png")
-            _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
+            _save(hive, img_hive_sam, c, bees, colors, img_tracklets, score)
             break
         if success:
             
@@ -581,6 +619,14 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     cv2.circle(frame, (int(p[0]), int(p[1])), 15, (255, 50, 100), -1)       
             """
             trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
+            
+            pred_ids = [d[-1] for d in trackers]
+
+            num_preds = len(pred_ids)
+            misses_count = max(0, n_tracks - num_preds)
+            #fp_count = max(0, num_preds - n_tracks)
+
+            score.update(misses=misses_count, idsw=len(respowns), g=n_tracks, pre_ids=pred_ids)
 
             # DENSED INDIVISUALS
             for i in range(max(labels)):
@@ -613,9 +659,10 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     bees[d_int[-1]].update(d_int[:6], mask, pos_center, fps=fps, reset=r)
                     if draw_trajectory:
                         bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
-                    bees[d_int[-1]].tracked_frames += 1
+                    if not r:
+                        bees[d_int[-1]].tracked_frames += 1
                     
-            d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=fps)
+            d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=32)
                     
             for i, bee in enumerate(bees.values()):
                 if bee.id not in trackers[:, -1]:
@@ -656,10 +703,13 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             if len([bees[id].distance for id in bees if id in trackers[:, -1]and bees[id].distance != 0]) != 0 and c != 0:
                 Bee.distances_avg[c] = np.mean([bees[id].distance for id in bees if id in trackers[:, -1] and bees[id].distance != 0])
                 Bee.distances_med[c] = np.median([bees[id].distance for id in bees if id in trackers[:, -1]and bees[id].distance != 0])
-                prog.set_description(f"{np.mean(Bee.distances_avg[:c])*100:.4f} {np.mean(Bee.distances_med[:c])*100:.4f} {np.mean(sum_densed[:c]):.4f}")
+                #prog.set_description(f"{np.mean(Bee.distances_avg[:c])*100:.4f} {np.mean(Bee.distances_med[:c])*100:.4f} {np.mean(sum_densed[:c]):.4f}")
             else:
                 Bee.distances_avg[c] = 0
                 Bee.distances_med[c] = 0
+            if c!= 0:
+                prog.set_description(f"mota: {score.calc_mota():.4f} x: {score.calc_average_lifetime(c):.4f}")
+        
                     
             c += 1
             prog.update(1)
@@ -674,11 +724,11 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             
             video.write(frame)
         else: 
-            _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
+            _save(hive, img_hive_sam, c, bees, colors, img_tracklets, score)
             break
 
 if __name__ == "__main__":
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #19 20 22
     #kpdetect("noflora2", "0902", model, 20, 10000)
-    kpdetect("resized_0430", "resized_0430", model, 22, 100000)
+    kpdetect("resized_0430", "resized_0430", model, 22, 21000)

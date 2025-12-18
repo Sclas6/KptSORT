@@ -1,0 +1,754 @@
+
+	DURATION: 18, rad: 0.8, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.71      0.07      0.13     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.91      0.75      0.76    462022
+weighted avg       0.96      0.97      0.96    462022
+
+	DURATION: 18, rad: 0.8, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.65      0.38      0.48     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.89      0.83      0.85    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 18, rad: 0.8, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      0.99     13463
+         0.0       0.98      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.49      0.51      0.50     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.85      0.86      0.85    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 18, rad: 0.8, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      0.99     13463
+         0.0       0.98      0.97      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.34      0.54      0.42     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.82      0.86      0.83    462022
+weighted avg       0.96      0.95      0.96    462022
+
+	DURATION: 18, rad: 1.2, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.77      0.12      0.21     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.92      0.76      0.78    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 18, rad: 1.2, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.62      0.57      0.59     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.88      0.87      0.88    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 18, rad: 1.2, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      0.99      0.99     13463
+         0.0       0.99      0.97      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.46      0.77      0.58     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.85      0.92      0.87    462022
+weighted avg       0.97      0.96      0.97    462022
+
+	DURATION: 18, rad: 1.2, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.99      0.95      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.33      0.80      0.47     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.82      0.92      0.84    462022
+weighted avg       0.97      0.95      0.96    462022
+
+	DURATION: 18, rad: 1.4, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.75      0.19      0.30     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.91      0.78      0.81    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 18, rad: 1.4, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.59      0.68      0.63     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.88      0.90      0.89    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 18, rad: 1.4, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.96      0.98    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.44      0.90      0.59     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.84      0.95      0.88    462022
+weighted avg       0.98      0.96      0.97    462022
+
+	DURATION: 18, rad: 1.4, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.99      0.94      0.97    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.33      0.92      0.48     11426
+
+    accuracy                           0.94    462022
+   macro avg       0.82      0.95      0.85    462022
+weighted avg       0.97      0.94      0.95    462022
+
+	DURATION: 18, rad: 1.6, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.66      0.20      0.30     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.89      0.78      0.81    462022
+weighted avg       0.96      0.97      0.96    462022
+
+	DURATION: 18, rad: 1.6, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.52      0.72      0.60     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.86      0.91      0.88    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 18, rad: 1.6, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.96      0.97    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.39      0.94      0.55     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.83      0.96      0.87    462022
+weighted avg       0.98      0.95      0.96    462022
+
+	DURATION: 18, rad: 1.6, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      1.00     13463
+         0.0       0.99      0.93      0.96    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.29      0.97      0.45     11426
+
+    accuracy                           0.93    462022
+   macro avg       0.81      0.96      0.84    462022
+weighted avg       0.97      0.93      0.95    462022
+
+	DURATION: 32, rad: 0.8, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.74      0.05      0.10     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.91      0.75      0.75    462022
+weighted avg       0.96      0.97      0.96    462022
+
+	DURATION: 32, rad: 0.8, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.71      0.39      0.50     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.91      0.83      0.86    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 32, rad: 0.8, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.98      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.50      0.51      0.51     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.86      0.86      0.86    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 32, rad: 0.8, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      0.99      0.99     13463
+         0.0       0.98      0.97      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.35      0.54      0.42     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.82      0.86      0.83    462022
+weighted avg       0.96      0.96      0.96    462022
+
+	DURATION: 32, rad: 1.2, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.83      0.12      0.21     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.93      0.76      0.78    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 32, rad: 1.2, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.99    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.66      0.56      0.61     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.90      0.87      0.88    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 32, rad: 1.2, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.97      0.98    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.48      0.76      0.59     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.85      0.92      0.88    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 32, rad: 1.2, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      0.99     13463
+         0.0       0.99      0.95      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.32      0.78      0.46     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.81      0.91      0.84    462022
+weighted avg       0.97      0.95      0.96    462022
+
+	DURATION: 32, rad: 1.4, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.82      0.17      0.28     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.93      0.77      0.80    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 32, rad: 1.4, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.99      0.99    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.63      0.66      0.64     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.89      0.89      0.89    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 32, rad: 1.4, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      1.00     13463
+         0.0       0.99      0.97      0.98    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.45      0.89      0.60     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.85      0.95      0.88    462022
+weighted avg       0.98      0.96      0.97    462022
+
+	DURATION: 32, rad: 1.4, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      0.99     13463
+         0.0       0.99      0.94      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.32      0.91      0.47     11426
+
+    accuracy                           0.94    462022
+   macro avg       0.81      0.94      0.84    462022
+weighted avg       0.97      0.94      0.95    462022
+
+	DURATION: 32, rad: 1.6, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.67      0.18      0.29     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.90      0.78      0.80    462022
+weighted avg       0.96      0.97      0.96    462022
+
+	DURATION: 32, rad: 1.6, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.54      0.72      0.61     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.87      0.91      0.88    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 32, rad: 1.6, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.96      0.97    405357
+         1.0       0.94      0.93      0.94     31776
+         2.0       0.40      0.97      0.56     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.83      0.96      0.87    462022
+weighted avg       0.98      0.96      0.96    462022
+
+	DURATION: 32, rad: 1.6, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      0.99     13463
+         0.0       0.99      0.93      0.96    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.29      0.97      0.44     11426
+
+    accuracy                           0.93    462022
+   macro avg       0.81      0.96      0.83    462022
+weighted avg       0.97      0.93      0.95    462022
+
+	DURATION: 64, rad: 0.8, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       1.00      0.04      0.07     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.98      0.74      0.75    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 64, rad: 0.8, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.76      0.27      0.40     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.92      0.80      0.83    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 64, rad: 0.8, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.53      0.42      0.47     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.86      0.84      0.85    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 64, rad: 0.8, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.97      0.98    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.35      0.47      0.40     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.82      0.84      0.83    462022
+weighted avg       0.96      0.96      0.96    462022
+
+	DURATION: 64, rad: 1.2, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.96      0.06      0.11     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.97      0.75      0.76    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 64, rad: 1.2, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.66      0.44      0.53     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.89      0.84      0.86    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 64, rad: 1.2, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      0.99      0.99     13463
+         0.0       0.99      0.98      0.98    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.47      0.65      0.54     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.85      0.89      0.86    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 64, rad: 1.2, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.96      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.35      0.74      0.47     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.82      0.91      0.85    462022
+weighted avg       0.97      0.95      0.96    462022
+
+	DURATION: 64, rad: 1.4, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.82      0.12      0.21     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.93      0.76      0.78    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 64, rad: 1.4, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.61      0.57      0.59     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.88      0.87      0.88    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 64, rad: 1.4, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.99      0.97      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.43      0.76      0.55     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.84      0.91      0.87    462022
+weighted avg       0.97      0.96      0.97    462022
+
+	DURATION: 64, rad: 1.4, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      0.99     13463
+         0.0       0.99      0.94      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.31      0.85      0.46     11426
+
+    accuracy                           0.94    462022
+   macro avg       0.81      0.93      0.84    462022
+weighted avg       0.97      0.94      0.95    462022
+
+	DURATION: 64, rad: 1.6, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.79      0.12      0.21     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.92      0.76      0.78    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 64, rad: 1.6, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      1.00      1.00     13463
+         0.0       0.98      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.50      0.59      0.54     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.86      0.87      0.86    462022
+weighted avg       0.97      0.97      0.97    462022
+
+	DURATION: 64, rad: 1.6, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      0.99     13463
+         0.0       0.99      0.96      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.36      0.82      0.50     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.82      0.93      0.85    462022
+weighted avg       0.97      0.95      0.96    462022
+
+	DURATION: 64, rad: 1.6, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       1.00      0.99      0.99     13463
+         0.0       0.99      0.93      0.96    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.28      0.93      0.43     11426
+
+    accuracy                           0.93    462022
+   macro avg       0.80      0.94      0.83    462022
+weighted avg       0.97      0.93      0.95    462022
+
+	DURATION: 128, rad: 0.8, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.00      0.00      0.00     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.73      0.73      0.73    462022
+weighted avg       0.94      0.97      0.95    462022
+
+	DURATION: 128, rad: 0.8, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.81      0.14      0.23     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.93      0.77      0.79    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 128, rad: 0.8, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.51      0.31      0.39     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.86      0.81      0.83    462022
+weighted avg       0.96      0.97      0.96    462022
+
+	DURATION: 128, rad: 0.8, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.98      0.98    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.33      0.35      0.34     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.81      0.82      0.81    462022
+weighted avg       0.96      0.96      0.96    462022
+
+	DURATION: 128, rad: 1.2, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.92      0.06      0.11     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.96      0.75      0.76    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 128, rad: 1.2, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.61      0.22      0.32     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.88      0.79      0.81    462022
+weighted avg       0.96      0.97      0.96    462022
+
+	DURATION: 128, rad: 1.2, eps: 0.02
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.98      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.44      0.52      0.47     11426
+
+    accuracy                           0.96    462022
+   macro avg       0.84      0.86      0.85    462022
+weighted avg       0.97      0.96      0.96    462022
+
+	DURATION: 128, rad: 1.2, eps: 0.025
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      0.99      0.99     13463
+         0.0       0.98      0.96      0.97    405357
+         1.0       0.95      0.93      0.94     31776
+         2.0       0.34      0.58      0.43     11426
+
+    accuracy                           0.95    462022
+   macro avg       0.81      0.87      0.83    462022
+weighted avg       0.97      0.95      0.96    462022
+
+	DURATION: 128, rad: 1.4, eps: 0.01
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.97      1.00      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.85      0.09      0.16     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.94      0.75      0.77    462022
+weighted avg       0.97      0.97      0.96    462022
+
+	DURATION: 128, rad: 1.4, eps: 0.015
+
+              precision    recall  f1-score   support
+
+        -1.0       0.99      1.00      1.00     13463
+         0.0       0.98      0.99      0.98    405357
+         1.0       0.95      0.94      0.94     31776
+         2.0       0.60      0.31      0.40     11426
+
+    accuracy                           0.97    462022
+   macro avg       0.88      0.81      0.83    462022
+weighted avg       0.96      0.97      0.97    462022
