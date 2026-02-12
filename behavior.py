@@ -304,7 +304,7 @@ def detect_trophallaxis_(d, trackers, bees: dict, frame, fps=18):
                         
     return d_exchange
 
-def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, fps=18, radian=1.5, eps=0.02):
+def detect_trophallaxis(bees: dict[int, Bee], trackers, c, scaling_factor, fps=18, radian=1.5, eps=0.02, frame=None):
     start_dur = int(fps) 
     noise_dur = int(fps / 2)
     active_pairs_this_frame = set()
@@ -365,8 +365,8 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
                 bee1 = bees[trackers[i[0]][-1]]
                 bee2 = bees[trackers[i[1]][-1]]
                 if rad < radian:
-                    _handle_proximity(bee1, bee2, frame, d_exchanges, i[0])
-                    _handle_proximity(bee2, bee1, frame, d_exchanges, i[1])
+                    _handle_proximity(bee1, bee2, c, d_exchanges, i[0])
+                    _handle_proximity(bee2, bee1, c, d_exchanges, i[1])
 
                 #elif bee2.id in bee1.trophallaxis_pairs and bee1.id in bee2.trophallaxis_pairs:
                 #    if bee1.id == 12:
@@ -379,7 +379,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
         for partner_id in ongoing_partners:
             if tuple(sorted((bee.id, partner_id))) not in active_pairs_this_frame:
                 if partner_id in bees:
-                    _handle_non_proximity_end(bee, bees[partner_id], frame)
+                    _handle_non_proximity_end(bee, bees[partner_id], c)
         
                     
 
@@ -537,6 +537,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             ax.set_title(f"平均密集度: {np.mean(nnds)}")
             plt.savefig(f"{filename}_.png")
             _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
+            print(np.mean(nnds))
             break
         if success:
             
@@ -615,7 +616,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                         bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
                     bees[d_int[-1]].tracked_frames += 1
                     
-            d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=dur, radian=radian, eps=eps)
+            d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=dur, radian=radian, eps=eps, frame=frame)
                     
             for i, bee in enumerate(bees.values()):
                 if bee.id not in trackers[:, -1]:
@@ -701,7 +702,8 @@ if __name__ == "__main__":
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #19 20 22
     #kpdetect("noflora2", "0902", model, 20, 10000)
-    frame = 21000
+    frame = 1000
+    #frame = 100
     
     """
     dur_list = [18, 32, 64, 128]
@@ -733,9 +735,9 @@ if __name__ == "__main__":
     
     dur = 32
     rad = 1.4
-    eps = 0.05
+    eps = 0.015
     
-    bees = kpdetect("resized_0430", "resized_0430", model, 22, frame, dur=dur, radian=rad, eps=eps)
+    bees = kpdetect("resized_0430_10000", "resized_0430", model, 22, frame, dur=dur, radian=rad, eps=eps)
     sorted_keys = sorted(list(bees.keys()))
     sorted_dict_by_key = {k: bees[k] for k in sorted_keys}
     statuses_pred = {bee.id: bee.statuses for bee in bees.values()}
@@ -749,26 +751,20 @@ if __name__ == "__main__":
     
     y_true_flat, y_pred_flat = align_and_evaluate(statuses_gt, statuses_pred)
     
-    classification_report(y_true_flat, y_pred_flat)
+    print(classification_report(y_true_flat, y_pred_flat))
     
     y_true = np.array(y_true_flat)
     y_pred = np.array(y_pred_flat)
 
-    # 対象ラベル (0, 1, 2) のみに絞るマスクを作成
     mask = np.isin(y_true, [0, 1, 2])
     y_true_filtered = y_true[mask]
     y_pred_filtered = y_pred[mask]
 
-    # 2. 混合行列の計算
     labels = [0.0, 1.0, 2.0]
     cm = confusion_matrix(y_true_filtered, y_pred_filtered, labels=labels)
 
-    # 3. 可視化 (ヒートマップ)
     plt.figure(figsize=(8, 6))
     sns.set_theme(style="white")
-
-    # 数値を割合(%)で表示したい場合は、下の cm を cm_norm に差し替えてください
-    # cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=["Rest (0)", "Contact (1)", "Trophallaxis (2)"],
@@ -778,7 +774,6 @@ if __name__ == "__main__":
     plt.ylabel('Actual Label (GT)')
     plt.xlabel('Predicted Label')
 
-    # 4. 保存
     save_path = f"test/cm_dur{dur}_rad{rad}_eps{eps}.png"
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)

@@ -10,6 +10,7 @@ from tqdm.contrib import tzip
 from numba import njit
 import cv2
 import collections
+from collections import deque
 import numpy as np
 import pickle
 import statistics
@@ -24,6 +25,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import DBSCAN
 
 from scipy.spatial import KDTree
+
+MODE_GT = 0
+MODE_AUTO = 1
 
 class Score():
     def __init__(self, gt_count=22):
@@ -280,7 +284,7 @@ def gen_graphs(frames, bees: dict, colors: dict, path_out: str, th_frames: int=1
         avg_ratio = ratio_sum / len(ids_counter.keys())
     else:
         avg_ratio = 0
-    print(f"AVG: {avg_ratio}")
+    print(f"\tAVG: {avg_ratio}")
     plt.title("フレーム毎給餌回数")
     plt.xlabel("フレーム")
     plt.ylabel("給餌回数")
@@ -337,7 +341,7 @@ def detect_trophallaxis_(d, trackers, bees: dict, frame, fps=18):
                         
     return d_exchange
 
-def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, fps=18):
+def detect_trophallaxis(bees: dict[int, Bee], trackers, c, scaling_factor, fps=18, radian=1.5, eps=0.02, frame=None):
     start_dur = int(fps) 
     noise_dur = int(fps / 2)
     active_pairs_this_frame = set()
@@ -373,7 +377,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
     masks = np.isnan(heads).any(axis=1)
     heads = heads[~np.isnan(heads).any(axis=1), :]
     X = heads[:, :2] * scaling_factor
-    db = DBSCAN(eps=0.015, min_samples=2)
+    db = DBSCAN(eps=eps, min_samples=2)
     db.fit(X)
     labels = (l for l in db.labels_)
     labels = np.array([-1 if b else next(labels) for b in (masks)])
@@ -391,15 +395,15 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
         final_indices = mapped_original_indices[indices_in_filtered]
         for i in itertools.combinations(final_indices, 2):
             if trackers[i[0]][6] in [0, 3, 12] and trackers[i[1]][6] in [0, 3, 12]:
-                vec1 = calc_unit_vector(np.nan_to_num(trackers[i[0]], nan = -1).filled(-1))
-                vec2 = calc_unit_vector(np.nan_to_num(trackers[i[1]], nan = -1).filled(-1))
+                vec1 = calc_unit_vector(np.ma.filled(trackers[i[0]], fill_value=-1))
+                vec2 = calc_unit_vector(np.ma.filled(trackers[i[1]], fill_value=-1))
                 rad = np.linalg.norm(vec1 + vec2)
                 
                 bee1 = bees[trackers[i[0]][-1]]
                 bee2 = bees[trackers[i[1]][-1]]
-                if rad < 1.4:
-                    _handle_proximity(bee1, bee2, frame, d_exchanges, i[0])
-                    _handle_proximity(bee2, bee1, frame, d_exchanges, i[1])
+                if rad < radian:
+                    _handle_proximity(bee1, bee2, c, d_exchanges, i[0])
+                    _handle_proximity(bee2, bee1, c, d_exchanges, i[1])
 
                 #elif bee2.id in bee1.trophallaxis_pairs and bee1.id in bee2.trophallaxis_pairs:
                 #    if bee1.id == 12:
@@ -412,7 +416,7 @@ def detect_trophallaxis(bees: dict[int, Bee], trackers, frame, scaling_factor, f
         for partner_id in ongoing_partners:
             if tuple(sorted((bee.id, partner_id))) not in active_pairs_this_frame:
                 if partner_id in bees:
-                    _handle_non_proximity_end(bee, bees[partner_id], frame)
+                    _handle_non_proximity_end(bee, bees[partner_id], c)
         
                     
 
@@ -498,7 +502,7 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
     return d_caring , id
 
 
-def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, draw_trajectory=False):
+def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, draw_trajectory=False, mode=MODE_AUTO):
     if not os.path.exists(f"output/{filename}/"):
         os.makedirs(f"output/{filename}/")    
     def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets, score):
@@ -512,6 +516,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
         save_result(f"output/{filename}/", bees)
         mota = 1 - (score.fp + score.misses + score.idsw) / score.g
         print(f"MISSES: {score.misses}")
+        print(f"IDSWS: {score.idsw}")
         print(f"MOTA: {mota}")
         
         img_tracklets = cv2.cvtColor(img_tracklets, cv2.COLOR_BGR2BGRA)
@@ -544,6 +549,12 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
     sum_densed = np.zeros((n_frames + 1))
 
     mot_tracker = Sort(oks_threshold=0.00001, individuals=n_tracks)
+    mot_results = []
+    
+    frame_buffer = deque(maxlen=5)  # 直近5フレームを保持
+    debug_dir = "debug_frames"
+    os.makedirs(debug_dir, exist_ok=True)
+
     bees: dict[int, Bee] = dict()
     score = Score()
 
@@ -574,7 +585,25 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             fig.suptitle("密集度の時系列変化")
             ax.set_title(f"平均密集度: {np.mean(nnds)}")
             plt.savefig(f"{filename}_.png")
+            print("\tNNDS: ", np.mean(nnds))
             _save(hive, img_hive_sam, c, bees, colors, img_tracklets, score)
+            mot_output_path = f"output/{filename}/gt.txt"
+            lines = []
+            for row in mot_results:
+                line = ",".join([
+                    str(int(row[0])),    # Frame
+                    str(int(row[1])),    # ID
+                    f"{row[2]:.2f}",     # Left
+                    f"{row[3]:.2f}",     # Top
+                    f"{row[4]:.2f}",     # Width
+                    f"{row[5]:.2f}",     # Height
+                    "1", "-1", "-1", "-1"
+                ])
+                lines.append(line)
+            with open(mot_output_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines))
+                
+            print(f"MOT results saved to: {mot_output_path}")
             break
         if success:
             
@@ -619,6 +648,101 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     cv2.circle(frame, (int(p[0]), int(p[1])), 15, (255, 50, 100), -1)       
             """
             trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
+            if mode == MODE_GT:
+            # --- フレームバッファの更新 (色の描画を共通化) ---
+                annotated_frame = frame.copy()
+                for d in trackers:
+                    d_int = d.astype(np.int32)
+                    if d_int[-1] not in colors:
+                        colors[d_int[-1]] = next(color_map)
+                    tid = int(d[-1])
+                    color = colors[d_int[-1]]
+                    
+                    # 重心に点を描画
+                    cv2.circle(annotated_frame, (int(d[0]), int(d[1])), 4, color, -1)
+                    # IDテキストも同じ色で描画
+                    cv2.putText(annotated_frame, f"ID:{tid}", (int(d[0]), int(d[1])-10), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 0), 3, cv2.LINE_AA)
+                    cv2.putText(annotated_frame, f"ID:{tid}", (int(d[0]), int(d[1])-10), cv2.FONT_HERSHEY_PLAIN, 3, color, 2, cv2.LINE_AA)
+                    if d_int[-1] in respowns:
+                        cv2.circle(annotated_frame, (int(d[0]), int(d[1])), 20, (0, 0, 255), 5)
+                
+                frame_buffer.append(annotated_frame)
+
+                # --- 手動修正ブロック ---
+                if len(respowns) > 0 and c > 1:
+                    # 1. 保存用ディレクトリの作成
+                    event_dir = os.path.join(debug_dir, f"event_f{c:05d}")
+                    os.makedirs(event_dir, exist_ok=True)
+                    
+                    # 2. バッファ内の各フレームを証拠画像として保存
+                    for i, f_img in enumerate(frame_buffer):
+                        f_num = c - (len(frame_buffer) - 1) + i
+                        img_path = os.path.join(event_dir, f"seq_{i:02d}_f{f_num:05d}.png")
+                        cv2.imwrite(img_path, f_img)
+                    
+                    print(f"\n[!!!] ID Respawn detected at Frame {c}.")
+                    print(f"Check images in: {event_dir}")
+                    print(f"Current IDs in this frame: {trackers[:, -1].astype(int)}")
+                    print(f"New (Respawned) IDs to check: {respowns}")
+
+                    # 3. 修正指示の集約
+                    id_map = {}
+                    ids_to_delete = []
+                    for rid in respowns:
+                        val = input(f"Enter correct ID for ID {rid} (Delete: 'd', Keep: Enter): ")
+                        if val.strip().lower() == 'd':
+                            ids_to_delete.append(rid)
+                        elif val.strip() != "":
+                            id_map[rid] = int(val)
+
+                    # 4. 物理削除処理 (逆順popでメモリから完全に抹消)
+                    for rid in ids_to_delete:
+                        # 表示用配列から削除
+                        trackers = trackers[trackers[:, -1] != rid]
+                        # SORT内部メモリから削除
+                        for trk_idx in range(len(mot_tracker.trackers) - 1, -1, -1):
+                            if mot_tracker.trackers[trk_idx][0].id == rid:
+                                mot_tracker.trackers.pop(trk_idx)
+                                print(f"  -> Deleted ID {rid} from memory.")
+
+                    # 5. 安全なIDスワップロジック (三すくみ対応)
+                    # 手順A: 変更対象を一時的な負のIDに退避させて衝突を防ぐ
+                    temp_map = {} # {修正対象の元のID: 一時ID}
+                    for i, (old_id, new_id) in enumerate(id_map.items()):
+                        temp_id = -(i + 1) 
+                        temp_map[old_id] = temp_id
+                        for trk_idx in range(len(mot_tracker.trackers)):
+                            if mot_tracker.trackers[trk_idx][0].id == old_id:
+                                mot_tracker.trackers[trk_idx][0].id = temp_id
+                                print(f"  -> Temp-move: {old_id} to {temp_id}")
+
+                    # 手順B: 目的地(new_id)が既存IDなら、上書きのために古い方を消去
+                    for new_id in id_map.values():
+                        for trk_idx in range(len(mot_tracker.trackers) - 1, -1, -1):
+                            # 退避させた一時ID（負数）以外で、new_idと被る既存個体を消す
+                            if mot_tracker.trackers[trk_idx][0].id == new_id:
+                                mot_tracker.trackers.pop(trk_idx)
+                                print(f"  -> Cleared existing ID {new_id} to overwrite.")
+
+                    # 手順C: 一時IDから最終的な目的地(new_id)へ割り当て
+                    for old_id, new_id in id_map.items():
+                        temp_id = temp_map[old_id]
+                        for trk_idx in range(len(mot_tracker.trackers)):
+                            if mot_tracker.trackers[trk_idx][0].id == temp_id:
+                                trk_obj = mot_tracker.trackers[trk_idx][0]
+                                trk_obj.id = new_id
+                                # パラメータを最強に固定して「戻り」を防止
+                                trk_obj.hits = 999 
+                                trk_obj.hit_streak = 100
+                                trk_obj.time_since_update = 0
+                                # 速度ベクトル(Kalman stateの後ろ半分)をリセットして予測を安定させる
+                                trk_obj.est_x[6 + 1:] = 0 # NUM_KPTS*2 + 1 以降を0に
+                                print(f"  -> Final-move: {old_id} (via {temp_id}) to {new_id}")
+                        
+                        # 表示用配列のIDも更新
+                        trackers[trackers[:, -1] == old_id, -1] = new_id
+
+                    print(f"  -> Frame {c} manual correction finalized.\n")
             
             pred_ids = [d[-1] for d in trackers]
 
@@ -636,8 +760,26 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             
             for d in trackers:
                 d_int = d.astype(np.int32)
-                if d_int[-1] not in colors:
-                    colors[d_int[-1]] = next(color_map)
+                if mode == MODE_AUTO:
+                    if d_int[-1] not in colors:
+                        colors[d_int[-1]] = next(color_map)
+                kpts_raw = d[:6]
+                kpts_x = kpts_raw[0::2]
+                kpts_y = kpts_raw[1::2]
+                
+                valid_x = kpts_x[~np.isnan(kpts_x)]
+                valid_y = kpts_y[~np.isnan(kpts_y)]
+                
+                if len(valid_x) > 0:
+                    bb_left = np.min(valid_x)
+                    bb_top = np.min(valid_y)
+                    bb_width = np.max(valid_x) - bb_left
+                    bb_height = np.max(valid_y) - bb_top
+                    obj_id = int(d[-1])
+                    
+                    mot_results.append([
+                        c + 1, obj_id, bb_left, bb_top, bb_width, bb_height, 1, -1, -1, -1
+                    ])
 
                 mask = str(bin(int(d_int[6])))[2:].zfill(6)
 
@@ -724,11 +866,84 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             
             video.write(frame)
         else: 
+            fig, ax = plt.subplots()
+            ax.plot([i for i in range(len(nnds))], nnds)
+            fig.suptitle("密集度の時系列変化")
+            ax.set_title(f"平均密集度: {np.mean(nnds)}")
+            plt.savefig(f"{filename}_.png")
+            print("\tNNDS: ", np.mean(nnds))
             _save(hive, img_hive_sam, c, bees, colors, img_tracklets, score)
             break
 
+import os
+import sys
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
+from ultralytics import YOLO
+
+def run_kpdetect_with_logging(args):
+    """
+    各プロセスで個別のログファイルに書き出すラッパー
+    """
+    folder, date, model_path, val, limit = args
+    
+    # ログファイル名の設定 (例: log_noflora1.txt)
+    log_filename = f"logs/log_{folder}.txt"
+    
+    # このスコープ内の出力をすべてファイルにリダイレクト
+    with open(log_filename, "w", encoding="utf-8") as f:
+        # 標準出力を一時的にファイルに切り替え
+        sys.stdout = f
+        sys.stderr = f
+        
+        try:
+            print(f"=== Started: {folder} (Date: {date}) ===")
+            
+            # モデルのロード（子プロセス内で行う）
+            model = YOLO(model_path)
+            
+            # メイン処理の実行
+            kpdetect(folder, date, model, val, limit)
+            
+            print(f"=== Finished: {folder} ===")
+        except Exception as e:
+            print(f"!!! Error in {folder}: {str(e)}")
+        finally:
+            # 標準出力を元に戻す
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+            
+    return f"Completed: {folder} -> {log_filename}"
+"""
 if __name__ == "__main__":
+    model_path = "/kpsort/runs/obb/train5/weights/best.pt"
+    
+    # タスク定義
+    tasks = [
+        ("noflora1", "0902", model_path, 20, 10000),
+        ("flora1", "0902", model_path, 18, 10000),
+        ("flora2", "0902", model_path, 19, 10000),
+        ("0728_PBS", "0728", model_path, 23, 10000),
+        ("0728_5SP", "0728", model_path, 39, 10000),
+    ]
+
+    print("Processing started. Check individual log files for progress.")
+    
+    # GPUメモリに合わせて max_workers を調整してください
+    with ProcessPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(run_kpdetect_with_logging, tasks))
+
+    for res in results:
+        print(res)
+        
+"""        
+if __name__ == "__main__":
+    
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
+    #kpdetect("resized_0430", "resized_0430", model, 22, 1000)
+    #kpdetect("1110PBS_29_1", "1110_PBS", model, 29, 1000)
+    kpdetect("flora1", "0902", model, 18, 1000, mode=MODE_AUTO)
     #19 20 22
-    #kpdetect("noflora2", "0902", model, 20, 10000)
-    kpdetect("resized_0430", "resized_0430", model, 22, 21000)
+    # 0623: noflora: 20 flora1: 18, flora2: 19
+    # 0728: PBS: 23 5SP: 39
+    #kpdetect("noflora1", "0902", model, 20, 1000000)
