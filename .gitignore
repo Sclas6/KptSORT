@@ -17,3 +17,5 @@ test*
 *.html
 bees/
 bees_gt/
+logs/
+old/

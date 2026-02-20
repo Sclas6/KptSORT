@@ -124,7 +124,7 @@ app.layout = dbc.Container([
             html.Div([
                 html.Div([
                     dp.DashPlayer(id="player1",
-                                url="http://127.0.0.1:8050/video1",
+                                url="http://172.16.15.116:8050/video1",
                                 controls=False,
                                 width="100%",
                                 height=None,
@@ -159,7 +159,7 @@ app.layout = dbc.Container([
             html.Div([
                 html.Div([
                     dp.DashPlayer(id="player2",
-                                url="http://127.0.0.1:8050/video2",
+                                url="http://172.16.15.116:8050/video2",
                                 controls=False,
                                 width="100%",
                                 height=None,
@@ -264,4 +264,4 @@ def frame_prev(_, index):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port="8050")
+    app.run(debug=True, port="8050", host="0.0.0.0")

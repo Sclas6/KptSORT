@@ -941,7 +941,7 @@ if __name__ == "__main__":
     
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #kpdetect("resized_0430", "resized_0430", model, 22, 1000)
-    #kpdetect("1110PBS_29_1", "1110_PBS", model, 29, 1000)
+    #kpdetect("1110PBS_29_1", "1110_PBS", model, 29, 1000000)
     kpdetect("flora1", "0902", model, 18, 1000, mode=MODE_AUTO)
     #19 20 22
     # 0623: noflora: 20 flora1: 18, flora2: 19

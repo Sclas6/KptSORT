@@ -304,21 +304,38 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     figs = dict()    
     #x_coords = np.random.normal(loc=1, scale=0.08, size=len([i.distance_sum for i in bees.values()]))
     
-    df_0 = pd.DataFrame({'各個体の総移動距離': [i.distance_sum for i in bees_1.values()], 'Category': 'A'})
-    df_1 = pd.DataFrame({'各個体の総移動距離': [i.distance_sum for i in bees_2.values()], 'Category': 'B'})
-    sns.boxplot(x='Category', y='各個体の総移動距離', data=df_0, color='lightblue', ax=plt.gca())
-    sns.stripplot(x='Category',y='各個体の総移動距離', data=df_0, color='darkgreen', s=7, alpha=0.6, jitter=0.0001, ax=plt.gca())
-    sns.boxplot(x='Category', y='各個体の総移動距離', data=df_1, color='lightblue', ax=plt.gca())
-    sns.stripplot(x='Category',y='各個体の総移動距離', data=df_1, color='darkgreen', s=7, alpha=0.6, jitter=0.0001, ax=plt.gca())
+    df_0 = pd.DataFrame({'各個体の総移動距離': [i.distance_sum for i in bees_1.values()], 'Category': "5SP"})
+    df_1 = pd.DataFrame({'各個体の総移動距離': [i.distance_sum for i in bees_2.values()], 'Category': "PBS"})
+
+    # --- 統計量の計算とプリント ---
+    for df, label in zip([df_0, df_1], ['Category A', 'Category B']):
+        data = df['各個体の総移動距離']
+        
+        mean_val = data.mean()          # 平均値
+        median_val = data.median()      # 中央値 (第2四分位数)
+        q1 = data.quantile(0.25)        # 第1四分位数
+        q3 = data.quantile(0.75)        # 第3四分位数
+        
+        print(f"--- {label} 統計量 ---")
+        print(f"平均値:   {mean_val:.2f}")
+        print(f"中央値:   {median_val:.2f}")
+        print(f"第1四分位数: {q1:.2f}")
+        print(f"第3四分位数: {q3:.2f}")
+        print("-" * 20)
+        
+    # --- 描画処理 (既存コード) ---
+    # ※結合して1つのデータフレームにすると描画がスムーズです
+    df_all = pd.concat([df_0, df_1])
+    sns.boxplot(x='Category', y='各個体の総移動距離', data=df_all, color='lightblue', ax=plt.gca(), showmeans=True, meanline=True)
+    sns.stripplot(x='Category', y='各個体の総移動距離', data=df_all, color='darkgreen', s=7, alpha=0.6, jitter=0.0001, ax=plt.gca())
+
     plt.savefig(f"{path_out}TotalDistanceTraveled.png")
-
     plt.cla()
-
 
     time_caring_0 = [sum([e.duration for e in bee.event_caring if e.duration > 0]) for bee in bees_1.values()]
     time_caring_1 = [sum([e.duration for e in bee.event_caring if e.duration > 0]) for bee in bees_1.values()]
-    df_0 = pd.DataFrame({'各個体の総育児時間': time_caring_0, 'Category': 'A'})
-    df_1 = pd.DataFrame({'各個体の総育児時間': time_caring_1, 'Category': 'B'})
+    df_0 = pd.DataFrame({'各個体の総育児時間': time_caring_0, 'Category': "5SP"})
+    df_1 = pd.DataFrame({'各個体の総育児時間': time_caring_1, 'Category': "PBS"})
     sns.boxplot(x='Category', y='各個体の総育児時間', data=df_0, color='lightblue', ax=plt.gca())
     sns.stripplot(x='Category',y='各個体の総育児時間', data=df_0, color='darkgreen', s=7, alpha=0.6, jitter=0.0001, ax=plt.gca())
     sns.boxplot(x='Category', y='各個体の総育児時間', data=df_1, color='lightblue', ax=plt.gca())
@@ -329,7 +346,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     distance_data_1 = [i.distance_sum for i in bees_2.values()]
     data_distance = {
         '各個体の総移動距離': distance_data_0 + distance_data_1,
-        'Category': ['A'] * len(distance_data_0) + ['B'] * len(distance_data_1),
+        'Category': ["5SP"] * len(distance_data_0) + ["PBS"] * len(distance_data_1),
         "ID": list(bees_1.keys()) + list(bees_2.keys())
     }
     df_distance = pd.DataFrame(data_distance)
@@ -340,6 +357,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
         fig_distance.add_trace(go.Box(
             y=df_subset['各個体の総移動距離'],
             name=category,
+            boxmean=True,
             boxpoints='all',  
             pointpos=0,
             jitter=0.0001,
@@ -377,7 +395,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     time_caring_1 = [sum([e.duration for e in bee.event_caring if e.duration > th]) for bee in bees_2.values()]
     data_caring = {
         '各個体の総育児時間': time_caring_0 + time_caring_1,
-        'Category': ['A'] * len(time_caring_0) + ['B'] * len(time_caring_1),
+        'Category': ["5SP"] * len(time_caring_0) + ["PBS"] * len(time_caring_1),
         'ID': list(bees_1.keys()) + list(bees_2.keys())
     }
     df_caring = pd.DataFrame(data_caring)
@@ -426,7 +444,7 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     time_trophallaxis_1 = [sum([e.duration for e in bee.event_trophallaxis if e.duration > th]) for bee in bees_2.values()]
     data_trophallaxis = {
         '頭ー頭・頭ー腹 相互作用の総発生回数': time_trophallaxis_0 + time_trophallaxis_1,
-        'Category': ['A'] * len(time_trophallaxis_0) + ['B'] * len(time_trophallaxis_1),
+        'Category': ["5SP"] * len(time_trophallaxis_0) + ["PBS"] * len(time_trophallaxis_1),
         'ID': list(bees_1.keys()) + list(bees_2.keys())
     }
     df_trophallaxis = pd.DataFrame(data_trophallaxis)
