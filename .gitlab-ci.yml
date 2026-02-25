@@ -8,7 +8,7 @@ stages:
   - deploy
 
 before_script:
-  - cd ./KptSORT-docs
+  - cd ./KptSORT
   - rm -rf .next
   - CI=false npm install
 

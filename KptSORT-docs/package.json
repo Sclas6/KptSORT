@@ -1,6 +1,6 @@
 {
-  "homepage": "KptSORT-docs",
-  "name": "KptSORT-docs",
+  "homepage": "KptSORT",
+  "name": "KptSORT",
   "version": "0.1.0",
   "private": true,
   "scripts": {

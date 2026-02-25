@@ -9,7 +9,7 @@ export const metadata = {
 
 const navbar = (
   <Navbar
-    logo={<b>KptSORT-docs</b>}
+    logo={<b>KptSORT</b>}
   //logoLink="http://git.in.minelab"
   // ... Your additional navbar options
   />
@@ -37,7 +37,7 @@ export default async function RootLayout({ children }) {
           //banner={banner}
           navbar={navbar}
           pageMap={await getPageMap()}
-          docsRepositoryBase="http://git.in.minelab/nagai/kpsort/-/tree/main/KptSORT-docs"
+          docsRepositoryBase="http://git.in.minelab/nagai/kpsort/-/tree/main/KptSORT"
           footer={footer}
           feedback={{ "link": "http://git.in.minelab/nagai/kpsort/-/issues/new" }}
         // ... Your additional layout options

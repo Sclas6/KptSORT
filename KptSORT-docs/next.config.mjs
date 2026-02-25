@@ -2,8 +2,7 @@ import nextra from 'nextra'
 
 const nextConfig = {
   output: 'export',
-  basePath: '/KptSORT-docs',
-  assetPrefix: '/KptSORT-docs',
+  basePath: '/KptSORT',
   trailingSlash: true,
   images: {
     unoptimized: true
