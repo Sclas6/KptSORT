@@ -1,4 +1,4 @@
-from AssignBeeHive import Bee, CaringEvent, TrophallaxisEvent
+#from AssignBeeHive import Bee, CaringEvent, TrophallaxisEvent
 import pickle
 import matplotlib.pyplot as plt
 import pandas as pd

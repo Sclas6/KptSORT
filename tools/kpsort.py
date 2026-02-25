@@ -299,7 +299,8 @@ class Sort(object):
                 
         # respawn tracker
         for i in unmatched_trks:
-            self.trackers[i][1] = self.frame_count
+            if self.trackers[i][1] == -1:
+                self.trackers[i][1] = self.frame_count
 
         i = len(self.trackers)
         for trk in reversed(self.trackers):
@@ -311,10 +312,8 @@ class Sort(object):
             if(trk[0].time_since_update > self.max_age):
                 self.trackers[i][0].age = 0
                 self.trackers.pop(i)
-        for i, trk in enumerate(self.trackers):
-            if trk[1] != -1:
-                if self.frame_count - trk[1] > 30:
-                    self.trackers.pop(i)
+        self.trackers = [trk for trk in self.trackers if not (trk[1] != -1 and self.frame_count - trk[1] > self.max_age)]
+
         if(len(ret)>0):
             return np.concatenate(ret), respowns
         return np.empty((0,5)), respowns

@@ -1,6 +1,5 @@
 import os
 os.chdir("/kpsort")
-from tools.kpsort import Sort
 from tools.loadpkl_jit import *
 from tools.AssignBeeHive import AssignBeeHive, Hive, Bee, CaringEvent, TrophallaxisEvent
 from tools.AssignBeeHive import BEHAVIOR_CARING, BEHAVIOR_NOTHING, BEHAVIOR_TROPHALLAXIS
@@ -10,57 +9,16 @@ from tqdm.contrib import tzip
 from numba import njit
 import cv2
 import collections
-from collections import deque
 import numpy as np
 import pickle
-import statistics
-from typing import Dict
 import itertools
-import math
 import matplotlib.pyplot as plt
 import japanize_matplotlib
 import seaborn as sns
-
-from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import DBSCAN
-
-from scipy.spatial import KDTree
 
 MODE_GT = 0
 MODE_AUTO = 1
-
-class Score():
-    def __init__(self, gt_count=22):
-        self.fp = 0
-        self.misses = 0
-        self.idsw = 0
-        self.g = 0
-        self.gt_count = gt_count
-        self.pre_ids = []
-        self.id_lifetimes = {}
-
-    def update(self, fp=0, misses=0, idsw=0, pre_ids=[], g=22):
-        self.fp += fp
-        self.misses += misses
-        self.idsw += idsw
-        self.pre_ids = pre_ids
-        self.g += g
-        
-        for p_id in pre_ids:
-            self.id_lifetimes[p_id] = self.id_lifetimes.get(p_id, 0) + 1
-
-    def calc_mota(self):
-        if self.g == 0: return 0
-        return 1 - ((self.fp + self.misses + self.idsw) / self.g)
-
-    def calc_average_lifetime(self, total_frames):
-        if not self.id_lifetimes: return 0
-        avg_life = sum(self.id_lifetimes.values()) / len(self.id_lifetimes)
-        stability = avg_life / total_frames
-        return stability
-
-    def get_max_id(self):
-        return max(self.id_lifetimes.keys()) if self.id_lifetimes else 0
 
 def check_overlap_2(individuals, threshold: int):
     fulls_sorted = list()
@@ -304,43 +262,6 @@ def gen_graphs(frames, bees: dict, colors: dict, path_out: str, th_frames: int=1
     plt.ylabel("個体ID")
     plt.savefig(f"{path_out}exchanged_map.png")
 
-
-def detect_trophallaxis_(d, trackers, bees: dict, frame, fps=18):
-    d_exchange = False
-    if d[6] in [0, 3, 12]:
-        bee: Bee = bees[d[-1]]
-        d_head = np.array([d[0], d[1]])
-        for d2 in trackers:
-            if d2[6] in [0, 3, 12] and d[-1] != d2[-1]:
-                d2_head = np.array([d2[0], d2[1]])
-                r = np.linalg.norm(d2_head - d_head)
-                rad = np.linalg.norm(calc_unit_vector(d) + calc_unit_vector(d2))
-                if (r < (calc_ava_length(trackers) / 1.1) and rad < 1.5):
-                    if d2[-1] not in bee.trophallaxis_pairs:
-                        bee.trophallaxis_pairs[d2[-1]] = 1
-                    
-                    else:
-                        bee.trophallaxis_pairs[d2[-1]] += 1
-                #"""
-                    if bee.trophallaxis_pairs[d2[-1]] > fps:
-                        d_exchange = True
-                        bee.update_status(BEHAVIOR_TROPHALLAXIS, frame)
-                        if d2[-1] not in bee.exchanging:
-                            bee.exchanging[d2[-1]] = 1
-                        else:
-                            bee.exchanging[d2[-1]] += 1
-                #"""
-                elif d2[-1] in bee.trophallaxis_pairs:
-                    if d2[-1] not in bee.nontrophallaxis_pairs:
-                        bee.nontrophallaxis_pairs[d2[-1]] = 1
-                    else:
-                        bee.nontrophallaxis_pairs[d2[-1]] += 1
-                        if bee.nontrophallaxis_pairs[d2[-1]] > fps/2:
-                            bee.nontrophallaxis_pairs.pop(d2[-1])
-                            bee.event_trophallaxis.append(TrophallaxisEvent(0, int(d2[-1]), bee.trophallaxis_pairs[d2[-1]]))
-                        
-    return d_exchange
-
 def detect_trophallaxis(bees: dict[int, Bee], trackers, c, scaling_factor, fps=18, radian=1.5, eps=0.02, frame=None):
     start_dur = int(fps) 
     noise_dur = int(fps / 2)
@@ -505,30 +426,19 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
 def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, draw_trajectory=False, mode=MODE_AUTO):
     if not os.path.exists(f"output/{filename}/"):
         os.makedirs(f"output/{filename}/")    
-    def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets, score):
-        print(f"mota: {score.calc_mota():.4f} x: {score.calc_average_lifetime(c):.4f}")
+    def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets):
         for bee in bees.values():
             np.savetxt(f'bees/bee_{bee.id}.txt', bee.statuses, fmt='%d')
-        #print(np.sum(Bee.exchanged_series))
-        #print(np.sum(Bee.hived_series))
         gen_hive_heatmap(hive, img_hive_sam, f"output/{filename}/")
         gen_graphs(c, bees, colors, f"output/{filename}/", 100)
         save_result(f"output/{filename}/", bees)
-        mota = 1 - (score.fp + score.misses + score.idsw) / score.g
-        print(f"MISSES: {score.misses}")
-        print(f"IDSWS: {score.idsw}")
-        print(f"MOTA: {mota}")
         
         img_tracklets = cv2.cvtColor(img_tracklets, cv2.COLOR_BGR2BGRA)
         img_tracklets[np.all(img_tracklets == [0, 0, 0, 255], axis=2), 3] = 0
         cv2.imwrite(f"output/{filename}/img_tracklets.png", img_tracklets)
-    
-    path_csv = f"sources/{filename}/CTD.csv"
-    path_pkl = f"sources/{filename}/BU.pickle"
 
-    with open(path_pkl, "rb") as file:
-        data_pkl: dict = pickle.load(file)
-    data_csv = load_csv(path_csv, n_tracks, n_bodyparts)
+    data_trackers = np.load(f"/kpsort/output/{filename}/trackers.npz")
+
     color_map = iter(gen_random_colors(10000, 334))
 
     cap = cv2.VideoCapture(f"sources/{filename}/{filename}.mp4")
@@ -546,25 +456,15 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
     img_hive_sam = cv2.imread(f"sources/hives/{hivename}/result_{hivename}.png")
     img_tracklets = np.zeros((height, width, 3), dtype=np.uint8)
     colors = dict()
-    sum_densed = np.zeros((n_frames + 1))
-
-    mot_tracker = Sort(oks_threshold=0.00001, individuals=n_tracks)
-    mot_results = []
     
-    frame_buffer = deque(maxlen=5)  # 直近5フレームを保持
     debug_dir = "debug_frames"
     os.makedirs(debug_dir, exist_ok=True)
 
     bees: dict[int, Bee] = dict()
-    score = Score()
 
     hive:AssignBeeHive
     with open(f"sources/hives/{hivename}/{hivename}.pickle", "rb") as f:
         hive = pickle.load(f)
-    data_raw = list()
-    for i, _ in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
-        if i > 0:
-            data_raw.append(pkl2setlist(data_pkl, i - 1))
 
     Bee.exchanged_series = np.zeros((frames))
     Bee.hived_series = np.zeros((frames))
@@ -576,210 +476,19 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 
     c = 0
     prog = tqdm(desc="Generating", total=n_frames)
-    while True:
-        success, frame = cap.read()
+
+    for success, frame in iter(cap.read, (False, None)):
         if c > n_frames:
-            
-            fig, ax = plt.subplots()
-            ax.plot([i for i in range(len(nnds))], nnds)
-            fig.suptitle("密集度の時系列変化")
-            ax.set_title(f"平均密集度: {np.mean(nnds)}")
-            plt.savefig(f"{filename}_.png")
-            print("\tNNDS: ", np.mean(nnds))
-            _save(hive, img_hive_sam, c, bees, colors, img_tracklets, score)
-            mot_output_path = f"output/{filename}/gt.txt"
-            lines = []
-            for row in mot_results:
-                line = ",".join([
-                    str(int(row[0])),    # Frame
-                    str(int(row[1])),    # ID
-                    f"{row[2]:.2f}",     # Left
-                    f"{row[3]:.2f}",     # Top
-                    f"{row[4]:.2f}",     # Width
-                    f"{row[5]:.2f}",     # Height
-                    "1", "-1", "-1", "-1"
-                ])
-                lines.append(line)
-            with open(mot_output_path, 'w', encoding='utf-8') as f:
-                f.write("\n".join(lines))
-                
-            print(f"MOT results saved to: {mot_output_path}")
+            _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
             break
+
         if success:
-            
-            results = model.predict(frame, device=0, conf=0.45, verbose=False)
-            rects = results[0].obb.xyxyxyxy.to('cpu').detach().numpy().copy()
-            individuals = assemble_w_yolo(rects, data_raw[c], data_csv[c], th)
-            cv2.putText(frame, str(c), (100, 100), cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 0), 1, cv2.LINE_AA)
-            desirable2remove = check_overlap_2(individuals, 0.5)
-            
-            poses = np.zeros((0, 2))
-            for individual in individuals:
-                for i in range(0, len(individual) - 1, 2):
-                    if math.isnan(individual[i]): continue
-                    #cv2.circle(frame, (int(individual[i]), int(individual[i + 1])), 5, (0, 255, 0), 5)
-                    cv2.circle(frame, (int(individual[i]), int(individual[i + 1])), 1, (0, 255, 0), 1)
-                kpt = np.reshape(individual[:6], (3,2))
-                pos_center_2 = np.mean(kpt[~np.isnan(kpt).any(axis=1), :], axis=0)
-                poses = np.append(poses, [pos_center_2], axis=0)
-            #X = StandardScaler().fit_transform(poses)
-            X = poses * scaling_factor
-            #db = DBSCAN(eps=0.3, min_samples=3)
-            db = DBSCAN(eps=0.04, min_samples=3)
-            db.fit(X)
-            labels = db.labels_
-            sum_densed[c] = len(labels[labels != -1])
-            tree_total = KDTree(poses)
-            D_max = np.sqrt(height**2 + width**2)
-            distances_total, _ = tree_total.query(poses, k=2)
-
-            nnd_total = np.mean(distances_total[:, 1])
-            nnd_norm = nnd_total / D_max
-            cohesion_index = 1.0 - nnd_norm
-            cohesion_index = np.power(cohesion_index, 2)
-            relative_density = sum_densed[c] / len(poses)
-            CFI_double_prime = cohesion_index * relative_density
-
-            nnds.append(CFI_double_prime)
-            """
-            for i, p in enumerate(poses):
-                if db.labels_[i] != -1:
-                    cv2.circle(frame, (int(p[0]), int(p[1])), 17, (255, 255, 255), -1)       
-                    cv2.circle(frame, (int(p[0]), int(p[1])), 15, (255, 50, 100), -1)       
-            """
-            trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
-            if mode == MODE_GT:
-            # --- フレームバッファの更新 (色の描画を共通化) ---
-                annotated_frame = frame.copy()
-                for d in trackers:
-                    d_int = d.astype(np.int32)
-                    if d_int[-1] not in colors:
-                        colors[d_int[-1]] = next(color_map)
-                    tid = int(d[-1])
-                    color = colors[d_int[-1]]
-                    
-                    # 重心に点を描画
-                    cv2.circle(annotated_frame, (int(d[0]), int(d[1])), 4, color, -1)
-                    # IDテキストも同じ色で描画
-                    cv2.putText(annotated_frame, f"ID:{tid}", (int(d[0]), int(d[1])-10), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 0), 3, cv2.LINE_AA)
-                    cv2.putText(annotated_frame, f"ID:{tid}", (int(d[0]), int(d[1])-10), cv2.FONT_HERSHEY_PLAIN, 3, color, 2, cv2.LINE_AA)
-                    if d_int[-1] in respowns:
-                        cv2.circle(annotated_frame, (int(d[0]), int(d[1])), 20, (0, 0, 255), 5)
-                
-                frame_buffer.append(annotated_frame)
-
-                # --- 手動修正ブロック ---
-                if len(respowns) > 0 and c > 1:
-                    # 1. 保存用ディレクトリの作成
-                    event_dir = os.path.join(debug_dir, f"event_f{c:05d}")
-                    os.makedirs(event_dir, exist_ok=True)
-                    
-                    # 2. バッファ内の各フレームを証拠画像として保存
-                    for i, f_img in enumerate(frame_buffer):
-                        f_num = c - (len(frame_buffer) - 1) + i
-                        img_path = os.path.join(event_dir, f"seq_{i:02d}_f{f_num:05d}.png")
-                        cv2.imwrite(img_path, f_img)
-                    
-                    print(f"\n[!!!] ID Respawn detected at Frame {c}.")
-                    print(f"Check images in: {event_dir}")
-                    print(f"Current IDs in this frame: {trackers[:, -1].astype(int)}")
-                    print(f"New (Respawned) IDs to check: {respowns}")
-
-                    # 3. 修正指示の集約
-                    id_map = {}
-                    ids_to_delete = []
-                    for rid in respowns:
-                        val = input(f"Enter correct ID for ID {rid} (Delete: 'd', Keep: Enter): ")
-                        if val.strip().lower() == 'd':
-                            ids_to_delete.append(rid)
-                        elif val.strip() != "":
-                            id_map[rid] = int(val)
-
-                    # 4. 物理削除処理 (逆順popでメモリから完全に抹消)
-                    for rid in ids_to_delete:
-                        # 表示用配列から削除
-                        trackers = trackers[trackers[:, -1] != rid]
-                        # SORT内部メモリから削除
-                        for trk_idx in range(len(mot_tracker.trackers) - 1, -1, -1):
-                            if mot_tracker.trackers[trk_idx][0].id == rid:
-                                mot_tracker.trackers.pop(trk_idx)
-                                print(f"  -> Deleted ID {rid} from memory.")
-
-                    # 5. 安全なIDスワップロジック (三すくみ対応)
-                    # 手順A: 変更対象を一時的な負のIDに退避させて衝突を防ぐ
-                    temp_map = {} # {修正対象の元のID: 一時ID}
-                    for i, (old_id, new_id) in enumerate(id_map.items()):
-                        temp_id = -(i + 1) 
-                        temp_map[old_id] = temp_id
-                        for trk_idx in range(len(mot_tracker.trackers)):
-                            if mot_tracker.trackers[trk_idx][0].id == old_id:
-                                mot_tracker.trackers[trk_idx][0].id = temp_id
-                                print(f"  -> Temp-move: {old_id} to {temp_id}")
-
-                    # 手順B: 目的地(new_id)が既存IDなら、上書きのために古い方を消去
-                    for new_id in id_map.values():
-                        for trk_idx in range(len(mot_tracker.trackers) - 1, -1, -1):
-                            # 退避させた一時ID（負数）以外で、new_idと被る既存個体を消す
-                            if mot_tracker.trackers[trk_idx][0].id == new_id:
-                                mot_tracker.trackers.pop(trk_idx)
-                                print(f"  -> Cleared existing ID {new_id} to overwrite.")
-
-                    # 手順C: 一時IDから最終的な目的地(new_id)へ割り当て
-                    for old_id, new_id in id_map.items():
-                        temp_id = temp_map[old_id]
-                        for trk_idx in range(len(mot_tracker.trackers)):
-                            if mot_tracker.trackers[trk_idx][0].id == temp_id:
-                                trk_obj = mot_tracker.trackers[trk_idx][0]
-                                trk_obj.id = new_id
-                                # パラメータを最強に固定して「戻り」を防止
-                                trk_obj.hits = 999 
-                                trk_obj.hit_streak = 100
-                                trk_obj.time_since_update = 0
-                                # 速度ベクトル(Kalman stateの後ろ半分)をリセットして予測を安定させる
-                                trk_obj.est_x[6 + 1:] = 0 # NUM_KPTS*2 + 1 以降を0に
-                                print(f"  -> Final-move: {old_id} (via {temp_id}) to {new_id}")
-                        
-                        # 表示用配列のIDも更新
-                        trackers[trackers[:, -1] == old_id, -1] = new_id
-
-                    print(f"  -> Frame {c} manual correction finalized.\n")
-            
-            pred_ids = [d[-1] for d in trackers]
-
-            num_preds = len(pred_ids)
-            misses_count = max(0, n_tracks - num_preds)
-            #fp_count = max(0, num_preds - n_tracks)
-
-            score.update(misses=misses_count, idsw=len(respowns), g=n_tracks, pre_ids=pred_ids)
-
-            # DENSED INDIVISUALS
-            for i in range(max(labels)):
-                individuals_labeled = np.array(individuals[np.where(labels == i)])
-                for _, point in enumerate(individuals_labeled):
-                    kpt = np.reshape(point[:6], (3,2))
+            trackers = data_trackers[f"arr_{c}"]
             
             for d in trackers:
                 d_int = d.astype(np.int32)
-                if mode == MODE_AUTO:
-                    if d_int[-1] not in colors:
-                        colors[d_int[-1]] = next(color_map)
-                kpts_raw = d[:6]
-                kpts_x = kpts_raw[0::2]
-                kpts_y = kpts_raw[1::2]
-                
-                valid_x = kpts_x[~np.isnan(kpts_x)]
-                valid_y = kpts_y[~np.isnan(kpts_y)]
-                
-                if len(valid_x) > 0:
-                    bb_left = np.min(valid_x)
-                    bb_top = np.min(valid_y)
-                    bb_width = np.max(valid_x) - bb_left
-                    bb_height = np.max(valid_y) - bb_top
-                    obj_id = int(d[-1])
-                    
-                    mot_results.append([
-                        c + 1, obj_id, bb_left, bb_top, bb_width, bb_height, 1, -1, -1, -1
-                    ])
+                if d_int[-1] not in colors:
+                    colors[d_int[-1]] = next(color_map)
 
                 mask = str(bin(int(d_int[6])))[2:].zfill(6)
 
@@ -797,11 +506,9 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     #bees[d_int[-1]] = Bee(id=d_int[-1], pos=pos_center, length=n_frames - 1)
                     bees[d_int[-1]].feeding_hives = {h: 0 for h in hive.hives.keys()}
                 else:
-                    r = d_int[-1] in respowns
-                    bees[d_int[-1]].update(d_int[:6], mask, pos_center, fps=fps, reset=r)
+                    bees[d_int[-1]].update(d_int[:6], mask, pos_center, fps=fps, reset=False)
                     if draw_trajectory:
                         bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
-                    if not r:
                         bees[d_int[-1]].tracked_frames += 1
                     
             d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=32)
@@ -817,16 +524,6 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                 if not d_exchange:
                     d_caring, _ = detect_caring(bee, hive, img_hive_sam, c, fps)
                 else: d_caring = False
-
-                """
-                for i in range(0, len(d_int[:3 * 2 + 1]), 2):
-                    if i > 4: break
-                    if mask[i] != "1":
-                        #cv2.circle(frame, (d_int[i], d_int[i + 1]), 4, colors[d_int[-1]], 4)
-                        if i == 0:
-                            pass
-                            #cv2.circle(frame, (d_int[i], d_int[i + 1]), 8, colors[d_int[-1]], 8)
-                """
 
                 cv2.putText(frame, str(bee.id), (bee.kpts[0], bee.kpts[1]), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 0), 3, cv2.LINE_AA)
                 cv2.putText(frame, str(bee.id), (bee.kpts[0], bee.kpts[1]), cv2.FONT_HERSHEY_PLAIN, 3, colors[bee.id], 2, cv2.LINE_AA)
@@ -848,101 +545,22 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                 #prog.set_description(f"{np.mean(Bee.distances_avg[:c])*100:.4f} {np.mean(Bee.distances_med[:c])*100:.4f} {np.mean(sum_densed[:c]):.4f}")
             else:
                 Bee.distances_avg[c] = 0
-                Bee.distances_med[c] = 0
-            if c!= 0:
-                prog.set_description(f"mota: {score.calc_mota():.4f} x: {score.calc_average_lifetime(c):.4f}")
-        
+                Bee.distances_med[c] = 0        
                     
             c += 1
-            prog.update(1)
-
-            """
-            img_tracklets_frame = cv2.cvtColor(img_tracklets, cv2.COLOR_BGR2BGRA)
-            img_tracklets_frame[np.all(img_tracklets_frame == [0, 0, 0, 255], axis=2), 3] = 0
-            x1, y1, x2, y2 = 0, 0, img_tracklets_frame.shape[1], img_tracklets_frame.shape[0]
-            frame[y1:y2, x1:x2] = frame[y1:y2, x1:x2] * (1 - img_tracklets_frame[:, :, 3:] / 255) + \
-                                img_tracklets_frame[:, :, :3] * (img_tracklets_frame[:, :, 3:] / 255)
-            """  
-            
+            prog.update(1)            
             video.write(frame)
+
         else: 
-            fig, ax = plt.subplots()
-            ax.plot([i for i in range(len(nnds))], nnds)
-            fig.suptitle("密集度の時系列変化")
-            ax.set_title(f"平均密集度: {np.mean(nnds)}")
-            plt.savefig(f"{filename}_.png")
-            print("\tNNDS: ", np.mean(nnds))
-            _save(hive, img_hive_sam, c, bees, colors, img_tracklets, score)
+            _save(hive, img_hive_sam, c, bees, colors, img_tracklets)
             break
 
-import os
-import sys
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor
-from ultralytics import YOLO
-
-def run_kpdetect_with_logging(args):
-    """
-    各プロセスで個別のログファイルに書き出すラッパー
-    """
-    folder, date, model_path, val, limit = args
-    
-    # ログファイル名の設定 (例: log_noflora1.txt)
-    log_filename = f"logs/log_{folder}.txt"
-    
-    # このスコープ内の出力をすべてファイルにリダイレクト
-    with open(log_filename, "w", encoding="utf-8") as f:
-        # 標準出力を一時的にファイルに切り替え
-        sys.stdout = f
-        sys.stderr = f
-        
-        try:
-            print(f"=== Started: {folder} (Date: {date}) ===")
-            
-            # モデルのロード（子プロセス内で行う）
-            model = YOLO(model_path)
-            
-            # メイン処理の実行
-            kpdetect(folder, date, model, val, limit)
-            
-            print(f"=== Finished: {folder} ===")
-        except Exception as e:
-            print(f"!!! Error in {folder}: {str(e)}")
-        finally:
-            # 標準出力を元に戻す
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
-            
-    return f"Completed: {folder} -> {log_filename}"
-"""
-if __name__ == "__main__":
-    model_path = "/kpsort/runs/obb/train5/weights/best.pt"
-    
-    # タスク定義
-    tasks = [
-        ("noflora1", "0902", model_path, 20, 10000),
-        ("flora1", "0902", model_path, 18, 10000),
-        ("flora2", "0902", model_path, 19, 10000),
-        ("0728_PBS", "0728", model_path, 23, 10000),
-        ("0728_5SP", "0728", model_path, 39, 10000),
-    ]
-
-    print("Processing started. Check individual log files for progress.")
-    
-    # GPUメモリに合わせて max_workers を調整してください
-    with ProcessPoolExecutor(max_workers=6) as executor:
-        results = list(executor.map(run_kpdetect_with_logging, tasks))
-
-    for res in results:
-        print(res)
-        
-"""        
 if __name__ == "__main__":
     
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
-    kpdetect("flora1", "0902", model, 18, 1000, mode=MODE_AUTO)
+    #kpdetect("resized_0430", "resized_0430", model, 22, 1000)
     #kpdetect("1110PBS_29_1", "1110_PBS", model, 29, 1000000)
-    #kpdetect("flora1", "0902", model, 18, 1000, mode=MODE_AUTO)
+    kpdetect("resized_0430_10000", "resized_0430", model, 22, 1000, mode=MODE_AUTO, draw_trajectory=True)
     #19 20 22
     # 0623: noflora: 20 flora1: 18, flora2: 19
     # 0728: PBS: 23 5SP: 39

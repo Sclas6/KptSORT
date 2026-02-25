@@ -1,3 +1,9 @@
+import os
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
 import dash
 from dash.dependencies import Input, Output, State
 from dash import html, dcc
@@ -10,14 +16,8 @@ import struct
 import numpy as np
 import cv2
 import dash_player as dp
-import os
-import sys
 from flask import send_from_directory
-from generate_graph import gen_graphs
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+from tools.generate_graph import gen_graphs
 
 def get_video(dir):
     max_frames = -1
@@ -72,18 +72,20 @@ frames_2 = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 figs = gen_graphs("/kpsort/test/", bees_1, bees_2, fps_1)
 
+"""
 with open("/kpsort/plt_series.pkl", mode="rb") as f:
     fig_lines = pickle.load(f)
-    
+""" 
 """
 with open("/kpsort/tools/figs.pkl", mode="rb") as f:
     figs = pickle.load(f)
 """
 
-data_x = [i for i in range(frames_1)]
-data_y = decode_plotly_bdata(fig_lines['data'][0]['y'])
+#data_x = [i for i in range(frames_1)]
+#data_y = decode_plotly_bdata(fig_lines['data'][0]['y'])
 # 初期グラフの作成
 fig = go.Figure()
+"""
 fig_lines.add_trace(
     go.Scatter(x=[fig_lines["data"][2]["x"][0]],
                y=[data_y[0]],
@@ -92,6 +94,7 @@ fig_lines.add_trace(
                name='Current Position'))
 fig_lines.update_layout(xaxis={"range": [100 - .5, 1000 + .5]},
                         hovermode="x unified")
+"""
 
 asst_path = os.path.join(os.getcwd(), "assets")
 app = dash.Dash(__name__, assets_folder=asst_path, external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -179,13 +182,13 @@ app.layout = dbc.Container([
                 dcc.Graph(id="fig_Trophallaxis_Network", figure=figs["Trophallaxis_Network"], style={'width': '95vh', 'height': '75vh'}),
                 dcc.Graph(id="fig_Trophallaxis_Heatmap", figure=figs["Trophallaxis_Heatmap"], style={'width': '95vh', 'height': '75vh'}),
                 
-                dcc.Graph(id="line_chart", figure=fig_lines),      
+                #dcc.Graph(id="line_chart", figure=fig_lines),      
             ])
         ], width=7, style=SCROLLABLE_COL_STYLE)
     ])  
 ],fluid=True,
                       className="dashboard")
-
+"""
 @app.callback([
     Output(component_id="player1",
            component_property="seekTo",
@@ -205,7 +208,7 @@ def update_graph_(index):
     return seek_to, seek_to, [
         dict(x=[[data_x[index]]], y=[[data_y[index - 100]]]), [-1], 1
     ]
-
+"""
 @app.callback([
     Output(component_id="fig_TotalRearingTime", component_property="figure", allow_duplicate=True),
     Output(component_id="fig_TotalTrophallaxisTime", component_property="figure", allow_duplicate=True),
@@ -221,18 +224,10 @@ def update_graph(th):
 
 
 @app.callback([
-    Output(component_id="player1",
-           component_property="seekTo",
-           allow_duplicate=True),
-    Output(component_id="player2",
-           component_property="seekTo",
-           allow_duplicate=True),
-    Output(component_id="line_chart",
-           component_property="extendData",
-           allow_duplicate=True),
-    Output(component_id="data_index_slider",
-           component_property="value",
-           allow_duplicate=True)
+    Output(component_id="player1", component_property="seekTo", allow_duplicate=True),
+    Output(component_id="player2", component_property="seekTo", allow_duplicate=True),
+    #Output(component_id="line_chart", component_property="extendData", allow_duplicate=True),
+    Output(component_id="data_index_slider", component_property="value", allow_duplicate=True)
 ], [Input(component_id="btn_next", component_property="n_clicks")],
               State(component_id="data_index_slider",
                     component_property="value"),
@@ -241,15 +236,14 @@ def update_graph(th):
 def frame_next(_, index):
     seek_to = (index + .5) / fps_1
 
-    return seek_to, seek_to, [
-        dict(x=[[data_x[index]]], y=[[data_y[index - 100]]]), [-1], 1
-    ], index + 1
+    #return seek_to, seek_to, [dict(x=[[data_x[index]]], y=[[data_y[index - 100]]]), [-1], 1], index + 1
+    return seek_to, seek_to, index + 1
 
 
 @app.callback([
     Output(component_id="player1", component_property="seekTo"),
     Output(component_id="player2", component_property="seekTo"),
-    Output(component_id="line_chart", component_property="extendData"),
+    #Output(component_id="line_chart", component_property="extendData"),
     Output(component_id="data_index_slider", component_property="value")
 ], [Input(component_id="btn_prev", component_property="n_clicks")],
               State(component_id="data_index_slider",
@@ -258,10 +252,8 @@ def frame_next(_, index):
 def frame_prev(_, index):
     seek_to = (index + .5) / fps_1
 
-    return seek_to, seek_to, [
-        dict(x=[[data_x[index]]], y=[[data_y[index - 100]]]), [-1], 1
-    ], index - 1
-
+    #return seek_to, seek_to, [dict(x=[[data_x[index]]], y=[[data_y[index - 100]]]), [-1], 1], index - 1
+    return seek_to, seek_to, index - 1
 
 if __name__ == '__main__':
     app.run(debug=True, port="8050", host="0.0.0.0")
