@@ -1,0 +1,106 @@
+diff --git a/node_modules/nextra-theme-docs/dist/components/last-updated.js b/node_modules/nextra-theme-docs/dist/components/last-updated.js
+index ff8b067..dfec47a 100644
+--- a/node_modules/nextra-theme-docs/dist/components/last-updated.js
++++ b/node_modules/nextra-theme-docs/dist/components/last-updated.js
+@@ -62,11 +62,13 @@ const LastUpdated = (t0) => {
+   }
+   let t7;
+   if ($[12] !== children || $[13] !== t6) {
+-    t7 = /* @__PURE__ */ jsxs(Fragment, { children: [
+-      children,
+-      " ",
+-      t6
+-    ] });
++    t7 = /* @__PURE__ */ jsxs(Fragment, {
++      children: [
++        children,
++        " ",
++        t6
++      ]
++    });
+     $[12] = children;
+     $[13] = t6;
+     $[14] = t7;
+diff --git a/node_modules/nextra-theme-docs/dist/mdx-components/wrapper.client.js b/node_modules/nextra-theme-docs/dist/mdx-components/wrapper.client.js
+index 2805d8b..08c8fe8 100644
+--- a/node_modules/nextra-theme-docs/dist/mdx-components/wrapper.client.js
++++ b/node_modules/nextra-theme-docs/dist/mdx-components/wrapper.client.js
+@@ -19,7 +19,7 @@ const ClientWrapper = (t0) => {
+     activePath
+   } = useConfig().normalizePagesResult;
+   const themeConfig = useThemeConfig();
+-  const date = themeContext.timestamp && metadata.timestamp;
++  const date = metadata.lastModified === undefined ? themeContext.timestamp && metadata.timestamp : themeContext.timestamp && metadata.lastModified
+   let t1;
+   if ($[0] !== metadata || $[1] !== themeContext.layout || $[2] !== themeContext.toc) {
+     t1 = (themeContext.layout === "default" || themeContext.toc) && /* @__PURE__ */ jsx("nav", { className: "nextra-toc x:order-last x:max-xl:hidden x:w-64 x:shrink-0 x:print:hidden", "aria-label": "table of contents", children: themeContext.toc && /* @__PURE__ */ jsx(TOC, { filePath: metadata.filePath, pageTitle: metadata.title }) });
+@@ -61,9 +61,11 @@ const ClientWrapper = (t0) => {
+   }
+   let t6;
+   if ($[14] !== date || $[15] !== themeConfig.lastUpdated) {
+-    t6 = date ? /* @__PURE__ */ jsx("div", { className: "x:mt-12 x:mb-8 x:text-xs x:text-gray-600 x:text-end x:dark:text-gray-400", children: cloneElement(themeConfig.lastUpdated, {
+-      date: new Date(date)
+-    }) }) : /* @__PURE__ */ jsx("div", { className: "x:mt-16" });
++    t6 = date ? /* @__PURE__ */ jsx("div", {
++      className: "x:mt-12 x:mb-8 x:text-xs x:text-gray-600 x:text-end x:dark:text-gray-400", children: cloneElement(themeConfig.lastUpdated, {
++        date: new Date(date)
++      })
++    }) : /* @__PURE__ */ jsx("div", { className: "x:mt-16" });
+     $[14] = date;
+     $[15] = themeConfig.lastUpdated;
+     $[16] = t6;
+@@ -81,14 +83,16 @@ const ClientWrapper = (t0) => {
+   }
+   let t8;
+   if ($[20] !== bottomContent || $[21] !== children || $[22] !== t3 || $[23] !== t4 || $[24] !== t5 || $[25] !== t6 || $[26] !== t7) {
+-    t8 = /* @__PURE__ */ jsxs("article", { className: t3, children: [
+-      t4,
+-      t5,
+-      children,
+-      t6,
+-      t7,
+-      bottomContent
+-    ] });
++    t8 = /* @__PURE__ */ jsxs("article", {
++      className: t3, children: [
++        t4,
++        t5,
++        children,
++        t6,
++        t7,
++        bottomContent
++      ]
++    });
+     $[20] = bottomContent;
+     $[21] = children;
+     $[22] = t3;
+@@ -102,10 +106,12 @@ const ClientWrapper = (t0) => {
+   }
+   let t9;
+   if ($[28] !== t1 || $[29] !== t8) {
+-    t9 = /* @__PURE__ */ jsxs(Fragment, { children: [
+-      t1,
+-      t8
+-    ] });
++    t9 = /* @__PURE__ */ jsxs(Fragment, {
++      children: [
++        t1,
++        t8
++      ]
++    });
+     $[28] = t1;
+     $[29] = t8;
+     $[30] = t9;
+diff --git a/node_modules/nextra-theme-docs/dist/schemas.js b/node_modules/nextra-theme-docs/dist/schemas.js
+index ded596b..17f7b88 100644
+--- a/node_modules/nextra-theme-docs/dist/schemas.js
++++ b/node_modules/nextra-theme-docs/dist/schemas.js
+@@ -72,7 +72,7 @@ const LayoutPropsSchema = z.strictObject({
+   darkMode: z.boolean().default(true).meta({
+     description: "Show or hide the dark mode select button."
+   }),
+-  docsRepositoryBase: z.string().startsWith("https://").default("https://github.com/shuding/nextra").meta({
++  docsRepositoryBase: z.string().startsWith("http://").default("https://github.com/shuding/nextra").meta({
+     description: "URL of the documentation repository."
+   }),
+   editLink: reactNode.default("Edit this page").meta({

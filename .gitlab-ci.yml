@@ -1,0 +1,28 @@
+image: node:25.2.1
+
+cache:
+  paths:
+    - node_modules/
+
+stages:
+  - deploy
+
+before_script:
+  - cd ./KptSORT-docs
+  - rm -rf .next
+  - CI=false npm install
+
+pages:
+  stage: deploy
+  environment: Production
+  script:
+    - CI=false npm run build
+    - cp out/index.html out/404.html
+    - mkdir ../public
+    - cp -r out/* ../public/
+  artifacts:
+    paths:
+      - public
+  only:
+    refs:
+      - main
