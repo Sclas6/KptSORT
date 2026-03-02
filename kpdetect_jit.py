@@ -649,7 +649,6 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
             """
             trackers, respowns = mot_tracker.update(individuals, desirable2remove, th)
             if mode == MODE_GT:
-            # --- フレームバッファの更新 (色の描画を共通化) ---
                 annotated_frame = frame.copy()
                 for d in trackers:
                     d_int = d.astype(np.int32)
@@ -657,10 +656,7 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                         colors[d_int[-1]] = next(color_map)
                     tid = int(d[-1])
                     color = colors[d_int[-1]]
-                    
-                    # 重心に点を描画
                     cv2.circle(annotated_frame, (int(d[0]), int(d[1])), 4, color, -1)
-                    # IDテキストも同じ色で描画
                     cv2.putText(annotated_frame, f"ID:{tid}", (int(d[0]), int(d[1])-10), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 0), 3, cv2.LINE_AA)
                     cv2.putText(annotated_frame, f"ID:{tid}", (int(d[0]), int(d[1])-10), cv2.FONT_HERSHEY_PLAIN, 3, color, 2, cv2.LINE_AA)
                     if d_int[-1] in respowns:
@@ -670,11 +666,9 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 
                 # --- 手動修正ブロック ---
                 if len(respowns) > 0 and c > 1:
-                    # 1. 保存用ディレクトリの作成
                     event_dir = os.path.join(debug_dir, f"event_f{c:05d}")
                     os.makedirs(event_dir, exist_ok=True)
                     
-                    # 2. バッファ内の各フレームを証拠画像として保存
                     for i, f_img in enumerate(frame_buffer):
                         f_num = c - (len(frame_buffer) - 1) + i
                         img_path = os.path.join(event_dir, f"seq_{i:02d}_f{f_num:05d}.png")
@@ -685,7 +679,6 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                     print(f"Current IDs in this frame: {trackers[:, -1].astype(int)}")
                     print(f"New (Respawned) IDs to check: {respowns}")
 
-                    # 3. 修正指示の集約
                     id_map = {}
                     ids_to_delete = []
                     for rid in respowns:
@@ -695,19 +688,14 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                         elif val.strip() != "":
                             id_map[rid] = int(val)
 
-                    # 4. 物理削除処理 (逆順popでメモリから完全に抹消)
                     for rid in ids_to_delete:
-                        # 表示用配列から削除
                         trackers = trackers[trackers[:, -1] != rid]
-                        # SORT内部メモリから削除
                         for trk_idx in range(len(mot_tracker.trackers) - 1, -1, -1):
                             if mot_tracker.trackers[trk_idx][0].id == rid:
                                 mot_tracker.trackers.pop(trk_idx)
                                 print(f"  -> Deleted ID {rid} from memory.")
 
-                    # 5. 安全なIDスワップロジック (三すくみ対応)
-                    # 手順A: 変更対象を一時的な負のIDに退避させて衝突を防ぐ
-                    temp_map = {} # {修正対象の元のID: 一時ID}
+                    temp_map = {}
                     for i, (old_id, new_id) in enumerate(id_map.items()):
                         temp_id = -(i + 1) 
                         temp_map[old_id] = temp_id
@@ -716,30 +704,24 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
                                 mot_tracker.trackers[trk_idx][0].id = temp_id
                                 print(f"  -> Temp-move: {old_id} to {temp_id}")
 
-                    # 手順B: 目的地(new_id)が既存IDなら、上書きのために古い方を消去
                     for new_id in id_map.values():
                         for trk_idx in range(len(mot_tracker.trackers) - 1, -1, -1):
-                            # 退避させた一時ID（負数）以外で、new_idと被る既存個体を消す
                             if mot_tracker.trackers[trk_idx][0].id == new_id:
                                 mot_tracker.trackers.pop(trk_idx)
                                 print(f"  -> Cleared existing ID {new_id} to overwrite.")
 
-                    # 手順C: 一時IDから最終的な目的地(new_id)へ割り当て
                     for old_id, new_id in id_map.items():
                         temp_id = temp_map[old_id]
                         for trk_idx in range(len(mot_tracker.trackers)):
                             if mot_tracker.trackers[trk_idx][0].id == temp_id:
                                 trk_obj = mot_tracker.trackers[trk_idx][0]
                                 trk_obj.id = new_id
-                                # パラメータを最強に固定して「戻り」を防止
                                 trk_obj.hits = 999 
                                 trk_obj.hit_streak = 100
                                 trk_obj.time_since_update = 0
-                                # 速度ベクトル(Kalman stateの後ろ半分)をリセットして予測を安定させる
-                                trk_obj.est_x[6 + 1:] = 0 # NUM_KPTS*2 + 1 以降を0に
+                                trk_obj.est_x[6 + 1:] = 0
                                 print(f"  -> Final-move: {old_id} (via {temp_id}) to {new_id}")
                         
-                        # 表示用配列のIDも更新
                         trackers[trackers[:, -1] == old_id, -1] = new_id
 
                     print(f"  -> Frame {c} manual correction finalized.\n")
@@ -748,7 +730,6 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 
             num_preds = len(pred_ids)
             misses_count = max(0, n_tracks - num_preds)
-            #fp_count = max(0, num_preds - n_tracks)
 
             score.update(misses=misses_count, idsw=len(respowns), g=n_tracks, pre_ids=pred_ids)
 
@@ -887,29 +868,23 @@ def run_kpdetect_with_logging(args):
     """
     folder, date, model_path, val, limit = args
     
-    # ログファイル名の設定 (例: log_noflora1.txt)
     log_filename = f"logs/log_{folder}.txt"
     
-    # このスコープ内の出力をすべてファイルにリダイレクト
     with open(log_filename, "w", encoding="utf-8") as f:
-        # 標準出力を一時的にファイルに切り替え
         sys.stdout = f
         sys.stderr = f
         
         try:
             print(f"=== Started: {folder} (Date: {date}) ===")
             
-            # モデルのロード（子プロセス内で行う）
             model = YOLO(model_path)
             
-            # メイン処理の実行
             kpdetect(folder, date, model, val, limit)
             
             print(f"=== Finished: {folder} ===")
         except Exception as e:
             print(f"!!! Error in {folder}: {str(e)}")
         finally:
-            # 標準出力を元に戻す
             sys.stdout = sys.__stdout__
             sys.stderr = sys.__stderr__
             
@@ -918,7 +893,6 @@ def run_kpdetect_with_logging(args):
 if __name__ == "__main__":
     model_path = "/kpsort/runs/obb/train5/weights/best.pt"
     
-    # タスク定義
     tasks = [
         ("noflora1", "0902", model_path, 20, 10000),
         ("flora1", "0902", model_path, 18, 10000),
@@ -929,7 +903,6 @@ if __name__ == "__main__":
 
     print("Processing started. Check individual log files for progress.")
     
-    # GPUメモリに合わせて max_workers を調整してください
     with ProcessPoolExecutor(max_workers=6) as executor:
         results = list(executor.map(run_kpdetect_with_logging, tasks))
 

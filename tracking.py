@@ -13,6 +13,8 @@ import japanize_matplotlib
 from concurrent.futures import ProcessPoolExecutor
 from sklearn.cluster import DBSCAN
 from scipy.spatial import KDTree
+import shutil
+from PIL import Image
 
 MODE_GT = 0
 MODE_AUTO = 1
@@ -95,8 +97,11 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
     kpsort_results = []
     nnds = []
     
-    frame_buffer = deque(maxlen=int(fps*2))  # 直近5フレームを保持
+    frame_buffer = deque(maxlen=int(fps * 1.5))
+    resize_rate = 0.5
     debug_dir = "debug_frames"
+    if os.path.exists(debug_dir):
+        shutil.rmtree(debug_dir)
     os.makedirs(debug_dir, exist_ok=True)
 
     data_raw = list()
@@ -169,9 +174,12 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
                     if d_int[-1] in respowns:
                         cv2.circle(annotated_frame, (int(d[0]), int(d[1])), 20, (0, 0, 255), 5)
                 
-                frame_buffer.append(annotated_frame)
+                h, w = annotated_frame.shape[:2]
+                small_frame = cv2.resize(annotated_frame, (int(w * resize_rate), int(h * resize_rate)))
+                frame_buffer.append(small_frame)
 
                 # --- 手動修正ブロック ---
+                """
                 if len(respowns) > 0 and c > 1:
                     # 1. 保存用ディレクトリの作成
                     event_dir = os.path.join(debug_dir, f"event_f{c:05d}")
@@ -184,9 +192,24 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
                         cv2.imwrite(img_path, f_img)
                     
                     print(f"\n[!!!] ID Respawn detected at Frame {c}.")
-                    print(f"Check images in: {event_dir}")
-                    print(f"Current IDs in this frame: {trackers[:, -1].astype(int)}")
-                    print(f"New (Respawned) IDs to check: {respowns}")
+                    print(f"Check images in: {event_dir}") 
+                """                    
+                if len(respowns) > 0 and c > 1:
+                    video_path = os.path.join(debug_dir, f"event_f{c:05d}.mp4")
+                    if len(frame_buffer) > 0:
+                        # 動画書き出し設定
+                        fourcc = cv2.VideoWriter_fourcc(*'H264') # または 'avc1'
+                        buf_h, buf_w = frame_buffer[0].shape[:2]
+                        out = cv2.VideoWriter(video_path, fourcc, fps, (buf_w, buf_h))
+                        
+                        for f in frame_buffer:
+                            out.write(f)
+                        out.release()
+                        
+                        print(f"\n[!!!] ID Respawn at Frame {c}. Video saved: {video_path}")
+                        print(f"Check Video at: {video_path}")
+                        print(f"Current IDs in this frame: {trackers[:, -1].astype(int)}")
+                        print(f"New (Respawned) IDs to check: {respowns}")
 
                     # 3. 修正指示の集約
                     id_map = {}
@@ -280,4 +303,4 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
 if __name__ == "__main__":
     
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
-    kpdetect("flora1", model, 18, 1000, mode=MODE_AUTO)
+    kpdetect("flora1", model, 18, 1000, mode=MODE_GT)
