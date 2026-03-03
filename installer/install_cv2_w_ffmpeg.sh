@@ -54,7 +54,7 @@ export OPENCV_CONTRIB_VER="4.11.0"
 curl -LO https://github.com/opencv/opencv_contrib/archive/refs/tags/${OPENCV_CONTRIB_VER}.tar.gz \
   && tar -xvzf ${OPENCV_CONTRIB_VER}.tar.gz
 
-export OPENCV_CONTRIB_MODULE=/kpsort/installer/opencv_contrib-${OPENCV_CONTRIB_VER}/modules
+export OPENCV_CONTRIB_MODULE=/KptSORT/installer/opencv_contrib-${OPENCV_CONTRIB_VER}/modules
 
 export PYTHON_EXEC="${VIRTUAL_ENV}/bin/python3"
 # python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])"

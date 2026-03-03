@@ -6,6 +6,15 @@ import { ProjectStructure } from "../components/ProjectStructure"
 <ProjectStructure
     highlights={["environment.sh", "install_cv2_w_ffmpeg.sh", "requirements.txt"]}
 />
+## DNNのセットアップ
+以下のURLに従い，DNNをセットアップする<br/>
+[2025ver_環境構築手順](http://wiki.in.minelab/651e18bcf179f6b61953a557)
+<Callout type="info">
+    GPUとCUDAの対応を確認しておくこと．<br/>
+    特にRTX PRO 6000 BlackwellとPyTorchの対応に注意する．<br/>
+    DeepLabCutでエラーが出る場合，torch，torchvisionをソースからビルドすると解決する場合がある． 
+</Callout>
+## トラッキング・行動分類
 
 <Steps>
 ## GitLabプロジェクトページからプロジェクトをcloneする
@@ -13,11 +22,50 @@ import { ProjectStructure } from "../components/ProjectStructure"
 git clone http://git.in.minelab/nagai/KptSORT.git
 ```
 <Callout type="default">
- 次のページを参考にGitLabユーザ登録を済ませておくこと．<br/>
- http://pages.git.in.minelab/gitlab-docs/
+    次のページを参考にGitLabユーザ登録を済ませておくこと．<br/>
+    http://pages.git.in.minelab/gitlab-docs/
 </Callout>
-## 
+## installerディレクトリに移動する
+```sh
+cd installer/
+```
+## environment.shを実行する
+```sh
+$ bash environment.sh
+/usr/include/python3.11
+/kpsort/.cv2/lib/python3.11/site-packages
+/usr/lib/x86_64-linux-gnu
+```
+## environment.shの出力をinstall_cv2_w_ffmpeg.shに貼り付ける
+```sh filename="install_cv2_w_ffmpeg.sh" {9,11,13} showLineNumbers{53}
+export OPENCV_CONTRIB_VER="4.11.0"
+curl -LO https://github.com/opencv/opencv_contrib/archive/refs/tags/${OPENCV_CONTRIB_VER}.tar.gz \
+  && tar -xvzf ${OPENCV_CONTRIB_VER}.tar.gz
+
+export OPENCV_CONTRIB_MODULE=/KptSORT/installer/opencv_contrib-${OPENCV_CONTRIB_VER}/modules
+
+export PYTHON_EXEC="${VIRTUAL_ENV}/bin/python3"
+# python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])"
+export PYTHON_INCLUDE="/usr/include/python3.11"
+# python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
+export PYTHON_SITE="${VIRTUAL_ENV}/lib/python3.11/site-packages"
+# python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
+export PYTHON_LIB="/usr/lib/x86_64-linux-gnu"
+
+export OPENCV_VER="4.11.0"
+export INSTALL_DIR=${VIRTUAL_ENV}
+```
+## install_cv2_w_ffmpeg.shを実行する
+```sh
+bash install_cv2_w_ffmpeg.sh
+```
+## OpenCVでH264形式の動画を出力できるか確認する
+出力できれば環境構築は完了．
+出来ていなければ各種スクリプトのパスが合っているか確認し再実行する．
+</Steps>
 
 
-
+## DeepLabCut
+<Steps>
+## あ
 </Steps>
