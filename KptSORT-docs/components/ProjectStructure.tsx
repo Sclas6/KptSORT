@@ -73,7 +73,7 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
                 <FileTree.Folder name="output" defaultOpen={hasH(["bees.pkl", "trackers.npz", "gt.txt", "data_graph.pkl"])}>
                     <FileTree.Folder name="{file_name}" defaultOpen>
                         <FileTree.File name={f("{threshould}_{filename}_{frames}.mp4")} />
-                        <FileTree.File name={f("bees.pkl", "/KptSORT/Start/")} />
+                        <FileTree.File name={f("bees.pkl")} />
                         <FileTree.File name={f("data_graph.pkl")} />
                         <FileTree.File name={f("gt.txt")} />
                         <FileTree.File name={f("trackers.npz")} />

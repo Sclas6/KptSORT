@@ -1,0 +1,91 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# 巣穴の定義と管理 (AssignBeeHive)
+
+`AssignBeeHive.py` は，画像処理とSegment Anything Model (SAM) を組み合わせて巣穴を自動的に検出し，マスクデータを作成するためのツールである．作成されたデータは，後の解析プロセスで個体がどの巣穴にいるかを判定するために使用される．
+
+<Steps>
+## 準備
+巣全体が写った基準画像（例： `hive.png` ）を用意し， `sources/` ディレクトリに配置する．
+
+## インスタンスの初期化
+解析スクリプト内で `AssignBeeHive` クラスをインスタンス化する．
+
+```python
+from tools.AssignBeeHive import AssignBeeHive, MODE_DOG
+
+name_file = "1110_5SP.png"
+abh = AssignBeeHive(
+    path_img=f"sources/{name_file}",
+    pps=64,
+    cnl=3,
+    mode_binarize=MODE_DOG,
+    th_size=(150, 700)
+)
+```
+<Callout type="info">
+主要なパラメータ
+*   **pps (points_per_side)**: SAMのプロンプト生成密度．値が大きいほど細かく検出する．
+*   **cnl (crop_n_layers)**: SAMのクロップレイヤー数．複雑な画像では値を増やす．
+*   **mode_binarize**: `MODE_DOG`（ガウシアン差分）または `MODE_CANNY`（エッジ検出）を選択する．
+*   **th_size**: 抽出する巣穴の面積（最小，最大）をピクセル単位で指定し，ノイズを除去する．
+</Callout>
+
+## 二値化画像の生成
+画像から巣穴の特徴を抽出するための前処理を実行する．
+```python
+abh.gen_binarized_image()
+```
+実行後， `out_fixed_1.png`（DOGの場合）などの二値化画像が出力される．
+
+## SAMによるマスク生成
+二値化画像を元に，SAMを用いて各巣穴の精密なマスクを生成する．
+```python
+abh.gen_mask_w_sam()
+```
+<Callout type="warning">
+この工程はGPU（CUDA）を使用し，計算に時間がかかる場合がある．
+</Callout>
+
+## 結果の保存
+```python
+with open(f"/KptSORT/sources/hives/{name_file[:-4]}/{name_file[:-4]}.pickle", "wb") as f:
+    pickle.dump(hive, f)
+```
+
+## 結果の確認
+`sources/hives/[画像名]/` 内に出力された `result[画像名].png` を確認する．各巣穴に固有の色が割り振られていれば成功である．
+</Steps>
+
+## 主な機能とメソッド
+
+### 座標から巣穴IDへの変換
+解析時には `pos2id` メソッドを使用し，ミツバチの座標 $(x, y)$ を入力することで，その個体がどの巣穴に属しているかを取得できる．
+
+```python
+# point = (x, y)
+hive_id, distance = abh.pos2id(point)
+```
+*   **戻り値**: 座標がマスク内にある場合はその巣穴IDを返し，マスク外の場合は最も近い巣穴のIDとその距離を返す．
+
+### 出力ファイル構造
+処理が完了すると，以下のディレクトリ構造でデータが保存される．
+
+<FileTree>
+  <FileTree.Folder name="sources" defaultOpen>
+    <FileTree.Folder name="hives" defaultOpen>
+      <FileTree.Folder name="[画像名]" defaultOpen>
+        <FileTree.File name="result[画像名].png" />
+        <FileTree.File name="[画像名].pickle" />
+      </FileTree.Folder>
+    </FileTree.Folder>
+  </FileTree.Folder>
+  <FileTree.Folder name="result" defaultOpen>
+    <FileTree.File name="bbox_pps64cnl31_[画像名].png" />
+  </FileTree.Folder>
+</FileTree>
+
+<Callout type="info">
+これらの出力ファイルは， `analysis.py` による行動解析において，個体がどの幼虫に給餌しているかを特定するために必要なデータとなる ．
+</Callout>

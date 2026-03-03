@@ -1,0 +1,70 @@
+import { Callout, Steps, Cards } from 'nextra/components'
+
+# 巣穴画像生成ツール
+
+`BeeHive Image Generator (BIGv2)` は，複数のミツバチの巣箱画像からパノラマ画像を生成し，
+それらの画像間で座標変換（線形・非線形）を行うためのユーティリティツールである．<br/>
+http://git.in.minelab/nagai/beehive-image-generator
+
+## 概要
+
+このツールは，個別のフレーム画像（IMG_xxxx.jpg）から巣全体のパノラマを作成し，特定個体の座標をパノラマ上の座標へとマッピングすることを目的としている．OpenCV，Stitchingライブラリ，およびNumpyを活用した高度な幾何変換を実装している．
+
+<Callout type="info">
+ソースコード内では `scale_factor = 1.6` がハードコードされており，非線形変換時の座標スケーリングに適用される．
+</Callout>
+
+## セットアップと使用フロー
+
+ツールの基本的な使用手順は以下の通りである．
+
+<Steps>
+### 画像データの準備
+`sources/` ディレクトリ配下に，フォルダ名（例： `0728` ）を作成し，その中にパノラマ合成用の `.jpg` 画像群と，基準となる巣の画像（ `hive.png` ）を配置する．
+
+### パノラマ画像の生成
+`generate_stitched_hive` 関数を実行する．この関数は指定されたフォルダ内の画像を走査し， `stitching.Stitcher` を用いて一枚のパノラマ画像を生成する．
+
+### 座標変換の実行
+生成されたパノラマ画像と基準画像の間で，線形変換（ `generate_linearly_transformed_img` ）または薄板スプライン（TPS）等を用いた非線形変換（ `generate_nonlinearly_transformed_img` ）を行い，位置合わせ済みの画像を出力する．
+
+### 座標のマッピング
+`get_warped_point` 関数を使用して，個別のフレーム画像上の座標を，変換後のパノラマ座標系へと変換する．
+</Steps>
+
+## 関数詳細
+
+ソースコードに含まれる主要な関数の機能と引数について解説する．
+
+### 1. パノラマ生成
+
+*   **generate_stitched_hive(name_folder, th=0.6)**
+    `sources/` 内の指定フォルダから画像を読み込み，パノラマ画像を生成する．
+    *   **_get_image_paths(path)** (関数内関数): `Path.rglob` を使用して，指定ディレクトリ下の全 `.jpg` ファイルの相対パスを取得する．
+
+### 2. 画像変換
+
+*   **generate_linearly_transformed_img(path_out, image_stitched, image_hive)**
+    パノラマ画像と基準画像の間の線形変換を行う．両画像をグレースケールに変換し，位置合わせを実行する．
+*   **generate_nonlinearly_transformed_img(path_out, image_stitched, points_warped, points_hive)**
+    対応点（ `points_warped` と `points_hive` ）に基づき，非線形な座標変換を画像に適用する．
+    *   入力された座標群は内部で `scale_factor` (1.6) によって除算され，データ型が `float32` に調整される．
+
+### 3. 座標マッピング
+
+*   **get_warped_point(id, image_source, image_warped, points_warped, points_hive, point)**
+    特定のフレーム内の座標（ `point` ）を，パノラマ/ワープ後の座標へと変換して返す．
+    *   **_transform_original_to_panorama(original_point, H_forward_matrix)** (関数内関数): ホモグラフィ行列 $H$ を用いて，同次座標系での行列演算を行い，元の座標をパノラマ座標へ投影する．第三成分が0（無限遠）になる場合は `(-1, -1)` を返す．
+
+## 実行例
+
+```python
+# 1. パノラマの生成
+pano = generate_stitched_hive("0728", 0.6)
+
+# 2. 線形変換による位置合わせ画像（Warped）の生成
+warped = generate_linearly_transformed_img("1110", pano, hive)
+
+# 3. 特定フレーム上の座標(100, 1700)を変換
+point_warped = get_warped_point("IMG_0019", test_img, warped, points_warped, points_hive, (100, 1700))
+```

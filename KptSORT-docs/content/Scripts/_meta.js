@@ -3,7 +3,7 @@ export default {
     "tools": {
         title: "tools"
     },
-    "\".gitlab-ci.yml\"": {
+    "gitlab-ci.yml": {
         title: ".gitlab-ci.yml"
     },
     "analysis.py": {

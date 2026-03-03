@@ -1,0 +1,30 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# トラッキング
+<Steps>
+## 仮想環境を有効にする
+```sh
+source .cv2/bin/activate
+```
+## [tracking.py](/Scripts/tracking.py.mdx)を実行する
+```sh
+python tracking.py
+```
+<Callout type="info">
+```python filename="tracking.py" {4} showLineNumbers{303}
+if __name__ == "__main__":
+    
+    model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
+    kpdetect("flora1", model, 18, 1000, mode=MODE_GT)
+```
+第一引数に動画名，第二引数にYOLO OBBモデル，第三引数に個体数，第四引数に任意のフレーム数を指定．<br/>
+mode_GTで手動修正モードになる．
+</Callout>
+## 結果を確認する
+output/trackers.npzにフレーム数の長さの(個体数, 13)のNdArray配列のリストが保存される．<br/>
+同様に，gt.txtに[MOTChallenge形式](https://motchallenge.net/instructions/)のトラッキング結果が格納される．
+<ProjectStructure highlights={["trackers.npz", "gt.txt"]} />
+
+</Steps>
+
