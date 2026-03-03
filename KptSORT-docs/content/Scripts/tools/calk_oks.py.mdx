@@ -1,0 +1,23 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../../components/ProjectStructure"
+
+# calk_oks.py
+
+`calk_oks.py` は，個体間のキーポイントの一致度を測定するためのOKS（Object Keypoint Similarity）を計算するモジュールである．
+
+<ProjectStructure highlights={["calk_oks.py", "kpsort.py"]} />
+
+## 概要
+
+追跡アルゴリズムにおいて，検出された個体と既存のトラッカーを紐付ける際の指標として使用される．
+
+## 定義されている関数
+
+*   **kpt2area(kpt_gt)**
+    キーポイントの最小/最大座標から，その個体が占める矩形領域の面積を計算する．
+*   **center(kpt_gt)**
+    キーポイント群の中心座標を計算する．
+*   **bin2(n)** (JIT)
+    整数を6ビットのバイナリリスト（マスク用）に変換する．
+*   **oks(gt_kpts, pred_kpts, sigma)** (JIT)
+    2つの個体間のOKSスコア（0.0〜1.0）を計算する．特定のキーポイントが欠損（NaN）している場合も考慮して計算が行われる．

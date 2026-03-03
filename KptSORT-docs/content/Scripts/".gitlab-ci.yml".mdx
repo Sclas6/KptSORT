@@ -1,0 +1,31 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# .gitlab-ci.yml
+
+`.gitlab-ci.yml` は，GitLab CI/CDパイプラインを定義する設定ファイルである．主にドキュメントのビルドとGitLab Pagesへのデプロイを自動化する役割を担う．
+
+<ProjectStructure highlights={[".gitlab-ci.yml"]} />
+
+## 概要
+
+Node.js環境（バージョン25.2.1）を使用して，`KptSORT-docs` ディレクトリ内のプロジェクトをビルドし，公開用ディレクトリ（ `public` ）に配置する設定となっている．
+
+## パイプライン構成
+
+### 1. グローバル設定
+*   **image**: `node:25.2.1` を使用して実行環境を構築する．
+*   **cache**: `node_modules/` をキャッシュすることで，ビルド時間を短縮する．
+*   **stages**: `deploy` ステージのみが定義されている．
+
+### 2. ジョブ定義 (`pages`)
+*   **before_script**: ビルド前に環境を整える．
+    *   `cd ./KptSORT-docs`: ドキュメントディレクトリへ移動する．
+    *   `rm -rf .next`: 以前のビルド成果物を削除する．
+    *   `npm install`: 依存パッケージをインストールする．
+*   **script**: デプロイ用の成果物を生成する．
+    *   `npm run build`: Next.jsプロジェクトをビルドする．
+    *   `cp out/index.html out/404.html`: エラーページ対策としてインデックスをコピーする．
+    *   `cp -r out/* ../public/`: ビルド成果物をルートの `public` ディレクトリに移動する．
+*   **artifacts**: `public` ディレクトリをアーティファクトとして保存し，Pagesとして公開する．
+*   **only**: `main` ブランチへのプッシュ時のみ実行される．

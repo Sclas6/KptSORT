@@ -1,0 +1,38 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# analysis.py
+
+`analysis.py` は，保存された追跡データ（ `trackers.npz` ）を読み込み，空間的・時間的特徴からミツバチの行動（栄養交換，育児）を自動検出するスクリプトである．
+
+<ProjectStructure highlights={["analysis.py", "AssignBeeHive.py"]} />
+
+## 関数詳細
+
+### 行動検出
+
+*   **detect_trophallaxis(bees, trackers, c, scaling_factor, ...)**
+    個体間の栄養交換を検出する．
+    1.  **DBSCANによるクラスタリング**: 全個体の頭部座標を空間クラスタリングし，近接している個体群を抽出する．
+    2.  **対面判定**: 近接ペアに対し， `calc_unit_vector` で得た向きベクトルの和のノルムを計算する．ノルムが小さい（＝ベクトルが逆向きに近い）場合，対面していると判断する．
+    3.  **イベント管理**: `_handle_proximity` と `handle_non_proximity_end` を使い，接触が `start_dur` 継続すれば開始， `noise_dur` 以上途切れれば終了と記録する．
+*   **detect_caring(bee, hive, img, frame, fps)**
+    巣穴に対する育児行動を検出する．
+    *   胸部の座標が `hive.pos2id` によって特定の巣穴マスク内に判定され，かつ「頭部が胸部に極端に近い姿勢（体長の1/4以下）」である場合に育児中とみなす．
+
+### 解析・補助関数
+
+*   **check_overlap_2(individuals, threshold)**: 全個体間のOKSを計算し，閾値を超える重複個体のインデックスペアを抽出する．
+*   **calc_unit_vector(d)**: キーポイントの欠損マスク（ `d` ）を確認し，頭-胸または頭-腹の座標から個体の前進方向を示す単位ベクトルを計算する．
+*   **mark_losted_trackers(frame, trackers, ids_prev, losted)**: 前フレームにいたが現フレームで消失した個体に対し，最後にいた場所に「DEAD」の文字とマーカーを描画し，解析上の追跡途切れを可視化する．
+*   **gen_hive_heatmap(hive, img_w_sum, path_out)**: 巣穴ごとの `counter` 値を `jet` カラーマップで正規化し，背景画像に合成したヒートマップを生成する．
+
+### メインパイプライン
+
+*   **kpdetect(filename, hivename, model, ...)**
+    動画を読み込み，フレームごとに `trackers.npz` から個体情報を展開，上記の行動検出関数を適用し，結果を動画および `bees.pkl` として保存する．
+
+## 実行方法
+```bash
+python analysis.py
+```

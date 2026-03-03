@@ -1,0 +1,22 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../../components/ProjectStructure"
+
+# loadpkl_jit.py
+
+`loadpkl_jit.py` は，YOLOの検出結果と個別のキーポイントデータを高速に照合・統合するための幾何計算ユーティリティ集である．
+
+<ProjectStructure highlights={["loadpkl_jit.py", "calk_oks.py"]} />
+
+## 関数詳細
+
+*   **assemble_w_yolo(xyxys, data_pkl, data_csv, threshould)**
+    YOLOの回転矩形（OBB）の中に，どのキーポイントが含まれるかを判定して個体を構築する．
+    1.  `take_difference_jit` で既知の個体データ（CSV）を除外した「浮遊キーポイント」を抽出する．
+    2.  各OBBに対し， `kpt_in_rect` を用いてキーポイントの包含判定を行う．
+    3.  構築された個体に対し， `check_overlap` で他個体との二重登録がないか確認し， `individuals` リストに追加する．
+*   **kpt_in_rect(point, rect_vertices)**
+    Numbaで実装された高速な包含判定関数である．矩形の各辺をベクトルとして捉え，点との外積の符号が全て一致するかをチェックする幾何学的アルゴリズム（クロスプロダクト法）を採用している．
+*   **get_enlarged_rectangle(vertices, scale_x, scale_y)**
+    矩形の中心を不動点として，頂点座標を `scale` 倍にスケーリングする．これにより，判定領域にマージンを持たせることが可能になる．
+*   **take_difference_jit(parts_raw, data_csv)**
+    生の全キーポイント群から，既に特定の個体に割り当てられている座標を `np.any` と `np_all_axis1` を用いて高速に検索・削除し，未割当のパーツのみを抽出する．

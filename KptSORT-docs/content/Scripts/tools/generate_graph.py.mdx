@@ -1,0 +1,17 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../../components/ProjectStructure"
+
+# generate_graph.py
+
+`generate_graph.py` は，解析された `bees.pkl` を入力とし，行動統計を可視化するためのPlotlyグラフやネットワーク図を生成する．
+
+<ProjectStructure highlights={["generate_graph.py", "analysis.py"]} />
+
+## 関数詳細
+
+*   **gen_network(edges, max_weight_global, title)**
+    個体間の栄養交換をネットワーク図で表現する． `networkx.spring_layout` でノードを配置し，エッジの太さを交換回数（ `weight` ）に比例させて描画する．
+*   **gen_bipartite_network(nodes_left, ..., nodes_right, ...)**
+    ハチ（左側）と巣穴（右側）の相互作用を示す二部グラフを生成する．育児行動の偏りなどを視覚的に確認できる．
+*   **gen_graphs(path_out, bees_1, bees_2, th)**
+    総移動距離，育児時間，栄養交換頻度について，2つの実験群（例：5SP vs PBS）の比較ボックスプロット（箱ひげ図）とストリッププロットを生成し，HTMLおよびCSVとして保存する．

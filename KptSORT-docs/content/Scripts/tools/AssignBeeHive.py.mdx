@@ -1,0 +1,26 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../../components/ProjectStructure"
+
+# AssignBeeHive.py
+
+`AssignBeeHive.py` は，巣穴（Hive）の構造定義と，個々のミツバチ（Bee）のライフログを管理するデータ構造を提供する．
+
+<ProjectStructure highlights={["AssignBeeHive.py"]} />
+
+## 主要クラスとメソッド
+
+### Bee クラス
+個体の状態（座標，移動距離，行動履歴）を保持する．
+*   **update(self, kpts, mask, pos, fps, reset)**
+    現在の座標とマスクを更新し，一定時間（ `fps * 2` フレーム）ごとに前回の記録地点からの `math.dist` を計算して `distance_sum`（総移動距離）に加算する．
+*   **draw_trajectory(self, frame, img_tracklets, color)**
+    `trajectory_deque` に蓄積された過去の座標を結び， `cv2.polylines` で移動軌跡を描画する．
+
+### AssignBeeHive クラス
+画像処理による巣穴の自動抽出と管理を行う．
+*   **gen_binarized_image(self)**
+    `MODE_DOG`（DoG法）または `MODE_CANNY`（Canny法）を用いて，巣穴の輪郭を強調した二位化画像を生成する．
+*   **gen_mask_w_sam(self)**
+    Segment Anything Model（SAM）を使用し，二値化画像上の各領域に対して高精度なマスクを自動生成する．各マスクは `Hive` オブジェクトとして登録される．
+*   **pos2id(self, pos, img)**
+    指定座標のピクセルカラーを `generated_img` から取得し，対応する `colors2id` を引く．背景色の場合は，全巣穴の重心（ `positions` ）の中で最も近いものを最近傍探索で返す．

@@ -2,10 +2,6 @@ import { Callout, Cards, Tabs, Steps, FileTree } from 'nextra/components'
 import { ProjectStructure } from "../components/ProjectStructure"
 
 # 環境構築
-## ディレクトリ構造
-<ProjectStructure
-    highlights={["environment.sh", "install_cv2_w_ffmpeg.sh", "requirements.txt"]}
-/>
 ## DNNのセットアップ
 以下のURLに従い，DNNをセットアップする<br/>
 [2025ver_環境構築手順](http://wiki.in.minelab/651e18bcf179f6b61953a557)
@@ -15,7 +11,9 @@ import { ProjectStructure } from "../components/ProjectStructure"
     DeepLabCutでエラーが出る場合，torch，torchvisionをソースからビルドすると解決する場合がある． 
 </Callout>
 ## トラッキング・行動分類
-
+<ProjectStructure
+    highlights={["environment.sh", "install_cv2_w_ffmpeg.sh", "requirements.txt"]}
+/>
 <Steps>
 ## GitLabプロジェクトページからプロジェクトをcloneする
 ```sh

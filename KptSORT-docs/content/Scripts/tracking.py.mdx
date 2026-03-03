@@ -1,0 +1,29 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# tracking.py
+
+`tracking.py` は，YOLOによる検出とKptSORTによる追跡を統合し，必要に応じてユーザーが手動でIDを修正できるモードを備えたメインパイプラインである．
+
+<ProjectStructure highlights={["tracking.py", "kpsort.py", "loadpkl_jit.py"]} />
+
+## 関数詳細
+
+### kpdetect(filename, model, n_tracks, n_frames, ...)
+追跡処理の本体である．以下の流れで処理が進行する．
+
+1.  **YOLO推論**: `model.predict` を実行し，ミツバチの向き（OBB）を取得する．
+2.  **データ統合**: `assemble_w_yolo` を呼び出し，検出された矩形領域と，外部データ（ `data_raw`, `data_csv` ）のキーポイントを紐付けて個体データを再構築する．
+3.  **密集度解析**: `KDTree` で個体間の最近傍距離を計算し，凝集指数（Cohesion Index）と相対密度を用いた密集度指標（CFI''）を算出する．
+4.  **SORT更新**: `mot_tracker.update` を実行してIDを割り当てる．
+5.  **手動修正（MODE_GT）**: IDの入れ替わり（Respawn）を検知すると， `frame_buffer` から前後フレームの動画を生成・再生し，ユーザーに正しいIDの入力を促す．
+    *   **IDスワップアルゴリズム**: 入力された修正指示に基づき，一時的な負のIDへの退避，既存IDの消去，最終IDの割り当てという3ステップで衝突なくメモリ内のIDを書き換える．
+
+*   **_save(mot_results, trackers_result, nnds)**
+    追跡結果をMOTフォーマットのテキストおよび `trackers.npz` として出力し，密集度の推移グラフを保存する．
+
+## 実行方法
+```bash
+python tracking.py
+```
+if __name__ == "__main__": ブロックにてモデルパスと解析対象の動画を指定して実行する ．

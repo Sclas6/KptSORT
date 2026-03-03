@@ -1,0 +1,54 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../../components/ProjectStructure"
+
+# kpsort.py
+
+`kpsort.py` は，キーポイント情報に基づいた多個体追跡アルゴリズム（KptSORT）の基幹部分を実装している．カルマンフィルタによる予測とOKS（Object Keypoint Similarity）を用いた関連付けを組み合わせ，密集環境下での個体識別維持を実現する．
+
+<ProjectStructure highlights={["kpsort.py", "calk_oks.py"]} />
+
+## クラス詳細
+
+### 1. KalmanKptTracker
+個々の個体のキーポイント（頭，胸，腹）の状態を管理し，カルマンフィルタを用いて次フレームの位置を推定するクラスである．
+
+*   **__init__(self, kpt, id)**
+    状態変数 <i>x</i> として，3つのキーポイントの座標<i>(x, y)</i>，マスク値，およびそれぞれの速度成分計13次元を定義し，初期化する．
+*   **predict(self)**
+    カルマンフィルタの予測ステップを実行する．等速直線運動モデルに基づき，次フレームにおけるキーポイントの推定座標と誤差共分散行列を更新する．
+*   **update(self, kpt)**
+    観測ステップを実行する．キーポイントの一部が欠損（NaN）している場合， `np.ma.masked_where` を用いて観測値をマスクし，有効な座標のみをフィルタに反映させる．更新後，内部の `hits` カウントをインクリメントする．
+*   **get_state(self)**
+    現在のカルマンフィルタによる推定状態（座標と速度）を返す．
+
+### 2. Sort
+複数のトラッカーを統括し，検出結果との紐付けおよびIDのライフサイクルを管理するメインクラスである．
+
+#### update(self, kpts, desirable2removes, oks_threshold)
+本アルゴリズムのメインループであり，以下のステップで追跡を更新する．
+
+<Steps>
+### 予測 (Prediction)
+現在保持している全トラッカーの `predict()` メソッドを呼び出し，現フレームにおける各個体の予測座標を算出する．
+
+### 重複検出の除去
+`desirable2removes` に含まれる座標ペアに対し，予測値との比較を行う．各ペアのうち，予測位置とのOKSスコアがより低い（＝予測から乖離している）方の検出データを削除し，二重検出を抑制する．
+
+### 関連付け (Association)
+`associate_detections_to_trackers` を呼び出し，残った検出結果（ `kpts` ）と予測座標（ `trks` ）の間でOKS行列を計算する．ハンガリアンアルゴリズム等を用いて，全体のOKSスコアが最大となる最適な組み合わせを特定する．
+
+### トラッカーの更新とフィルタリング
+マッチングしたペアに対し，検出データを用いてカルマンフィルタを更新する．ただし，重心移動距離が50ピクセルを超えるような不自然なジャンプが発生した場合は，マッチングを無効化する．
+
+### 未割当個体の再探索 (Respawn)
+マッチングしなかった検出結果に対し，過去にロストしたトラッカー（ `time_since_update > 0` ）との再照合を試みる．OKSが閾値を超えた場合，同一個体とみなしてIDを継承（Respawn）させ，それ以外は新規IDを割り当てる．
+
+### クリーンアップ
+一定期間（ `max_age` ）更新がなかったトラッカーを削除し，アクティブな追跡結果（ `ret` ）を返却する．
+</Steps>
+
+## 一般関数
+
+*   **linear_assignment(cost_matrix)**: `lapjv` ライブラリ（または `scipy` ）を使用して，コスト行列に基づいた最小コスト割り当てを計算する．
+*   **oks_batch(indivisuals_test, indivisuals_gt)**: Numbaで高速化されており，二つの個体群の全組み合わせに対するOKSスコア行列を一括生成する．
+*   **fill_masked(kpts) / fill_nan(kpts)**: 欠損しているキーポイントの座標を，同一個体の他の有効なパーツの座標で補完し，計算エラーを防ぐ．

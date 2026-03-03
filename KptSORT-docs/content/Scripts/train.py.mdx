@@ -1,0 +1,31 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# train.py
+
+`train.py` は，UltralyticsのYOLO11-obbモデルを使用して，ミツバチの個体検出のための学習を実行するスクリプトである．
+
+<ProjectStructure highlights={["train.py", "train2.yaml"]} />
+
+## 概要
+
+`train2.yaml` で定義された設定に基づき，回転を考慮した境界ボックス（OBB）の学習を行う．
+
+## 学習設定
+
+*   **Model**: `yolo11n-obb.pt` (事前学習済みベースモデル)．
+*   **Epochs**: 5000．
+*   **Image Size**: 1600．
+*   **Patience**: 1000 (改善が見られない場合に学習を停止する猶予)．
+
+## 設定ファイル (`train2.yaml`)
+
+学習に必要なデータセットの構造を定義する．
+*   **path**: データセットのルートディレクトリ．
+*   **train / val**: 学習および検証用画像の相対パス．
+*   **names**: クラスIDとラベルの対応（ `0: bee` ）．
+
+## 実行方法
+```bash
+python train.py
+```

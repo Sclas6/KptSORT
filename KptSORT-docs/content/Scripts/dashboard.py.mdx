@@ -1,0 +1,37 @@
+import { Callout, Steps, FileTree, Cards } from 'nextra/components'
+import { ProjectStructure } from "../../components/ProjectStructure"
+
+# dashboard.py
+
+`dashboard.py` は，ミツバチの行動解析結果をブラウザ上でインタラクティブに確認するためのDashアプリケーションである．
+
+<ProjectStructure highlights={["dashboard.py", "tools/generate_graph.py"]} />
+
+## 概要
+
+2つの異なる実験群（例：5SPとPBS）の解析結果を並べて表示し，動画の再生と同期して統計グラフを確認できる．
+
+## 定義されている関数
+
+*   **get_video(dir)**
+    指定されたディレクトリからH.264形式のMP4動画ファイルを探索し，そのパスを返す．
+*   **gen(cap)**
+    動画キャプチャからフレームを読み込み，ストリーミング用のJPEGバイナリを生成するジェネレータである．
+*   **decode_plotly_bdata(bdata_dict)**
+    Plotlyで扱われるバイナリ形式のデータをNumPy配列にデコードする．
+*   **serve_video_1() / serve_video_2()** (Flaskルート)
+    Flaskサーバーを介して，指定されたディレクトリの動画ファイルを配信する．
+
+## コールバック処理
+
+*   **update_graph(index)**
+    スライダーの操作に連動して，動画の再生位置（seekTo）を更新する．
+*   **update_graph(th)**
+    閾値（th）の入力に応じて，グラフを再生成して表示を更新する．
+*   **frame_next(n, index) / frame_prev(_, index)**
+    「▶」および「◀」ボタンのクリックにより，フレームを1つずつ進退させる．
+
+## 実行方法
+```bash
+python dashboard.py [ディレクトリ1] [ディレクトリ2]
+```
