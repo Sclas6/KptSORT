@@ -1,0 +1,593 @@
+import { DLCStructure } from "../../../components/DLCStructure"
+
+# 各種設定ファイル
+
+<DLCStructure highlights={["config.yaml", "pytorch_config.yaml", "inference_cfg.yaml"]} />
+
+## config.yaml
+
+`config.yaml`はプロジェクトの生成時に出力されるファイルである．<br/>
+個体数やキーポイントの定義，動画ファイルの定義を行う．<br/>
+学習時には別ファイルに設定を記述するため設定事項は多くないが，主な設定を以下に挙げる．
+
+### 主要な設定項目の解説
+
+`config.yaml` 内の各セクションが，プロジェクトの動作にどのように影響するかを説明する．
+
+#### 1. ビデオと個体数の定義
+* **`video_sets`**: ラベル付けや解析の対象となるビデオファイルのフルパスと，そのトリミング範囲を定義する．解析時に映像の端を除外したい場合は，この数値を調整する．
+* **`individuals`**: 同一フレーム内に存在する最大個体数を定義する．提示された例では `individual38` まで定義されており，最大38匹までの同時追跡を想定している．
+* **`multianimalbodyparts`**: 各個体で共通してラベル付けする部位（head，body，stingerなど）を指定する．
+
+#### 2. スケルトン（骨格）の定義
+`skeleton` は部位間を線で結ぶ定義である．可視化の際に見やすくなるだけでなく，解析時の個体構築（Assembly）に利用される．
+
+#### 3. 学習・解析パラメータ
+* **`numframes2pick`**: 学習データ作成のために，1つの動画から抽出するフレーム数である．通常は20から50枚程度を指定し，動画全体の多様なシーンをカバーさせる．
+* **`pcutoff`**: 予測の信頼度に関する閾値である．解析時，この値（例: `0.6`）を下回るキーポイントは，精度が低いとみなされ，プロットや統計解析の対象から除外される．
+* **`default_track_method`**: 個体の追跡アルゴリズムの指定である．マルチアニマルプロジェクトでは，`ellipse`，`box`，`skeleton` などが選択可能である．
+
+---
+
+### 運用上の注意点
+
+#### パスの管理
+`project_path` はプロジェクトの絶対パスを保持している．データを別のサーバーやローカル環境へ移動させた場合は，必ずこのパスを現在のディレクトリに手動で書き換える必要がある．ここが不整合であると，ビデオの読み込みや学習の開始時にエラーが発生する．
+
+#### 編集のタイミング
+ラベル付けを開始した後に `multianimalbodyparts`を変更すると，既存のラベルデータとの整合性が取れなくなり，作業のやり直しが発生する．部位を追加・変更した場合は，`check_labels` を実行してデータの整合性を確認する必要がある．
+
+---
+
+## pytorch_config
+
+### 主要な設定項目の解説
+
+`pytorch_config.yaml` 内の主要なセクションについて説明する．
+
+#### 1. Dataセクション
+データの前処理や拡張に関する設定である．
+* **`affine`**: 画像の回転，拡大縮小，平行移動の確率と範囲を指定する．これにより，個体の向きや大きさが変化しても正しく検出できるように学習を強化する．
+* **`crop_sampling`**: 学習時に画像を切り出す際のサイズを指定する．提示された例では 448x448 ピクセルである．
+* **`gaussian_noise` / `motion_blur`**: 画像にノイズを加えたり，ブレを再現したりすることで，画質が悪いビデオに対するロバスト性を高める．
+
+#### 2. Modelセクション
+使用するニューラルネットワークの構造に関する設定である．
+* **`backbone`**: 特徴抽出を行う主幹ネットワークを指定する．本研究では [HRNet (w48)](https://arxiv.org/abs/2006.15480) を採用する．
+* **`heads`**: 姿勢推定のための予測頭部（Head）の設定である．[DEKR](https://arxiv.org/abs/2104.02300) を採用する．
+* **`num_animals`**: 同時に検出を試みる最大個体数である．ここでは `38` に設定されている．
+
+#### 3. Runnerセクション
+学習の実行プロセスを制御する設定である．
+* **`optimizer`**: 重みの更新アルゴリズムを指定する．ここでは `AdamW` を使用し，学習率（lr）は `0.0005` に設定している．
+* **`scheduler`**: 学習の進行に伴って学習率を下げるタイミングを管理する．
+* **`eval_interval`**: 何エポックごとにテストデータで評価を行うかを指定する．
+
+#### 4. Train Settingsセクション
+学習の環境負荷や期間に関する設定である．
+* **`batch_size`**: 一度の計算で同時に処理する画像枚数である．提示された例では `8` であるが，GPUのメモリ容量に応じて調整が必要になる場合がある．
+* **`epochs`**: 学習全体でデータを何回繰り返して学習させるかの回数である．ここでは `200` 回に設定されている．
+
+---
+
+### 運用上の注意点
+
+#### 学習の再現性
+`seed: 42` が設定されており，乱数の固定が行われている．これにより，同じデータと設定であれば理論上は同じ学習結果が得られるようになっている．
+
+#### メモリの最適化
+GPUメモリが不足してエラーが発生する場合は，`batch_size` を下げるか，`crop_sampling` のサイズを小さくすることを検討する必要がある．
+
+---
+
+## inference_cfg.yaml
+
+### 主要な設定項目の解説
+
+`inference_cfg.yaml` 内の主要なセクションについて説明する．
+
+* **`pafthreshold`**: Part Affinity Fieldsに対する閾値．BUCTDパイプラインでは使用されない（要確認）．
+* **`pcutoff`**: confidenceに対する閾値．確信度がこの値以下のKptは記録されない．
+* **`topktoretain`**: 予測する個体数．**可能な限り解析する動画の個体数に合わせる．**
+
+
+## 付録
+### R8.03/04時点で使用していたconfig.yamlファイル
+```yaml filename="config.yaml"
+# Project definitions (do not edit)
+Task: 0902_BUCTD
+scorer: nagai
+date: Sep2
+multianimalproject: true
+identity: false
+
+
+# Project path (change when moving around)
+project_path: /dlc/0902_BUCTD/ALL
+
+# Default DeepLabCut engine to use for shuffle creation (either pytorch or tensorflow)
+engine: pytorch
+
+# Annotation data set configuration (and individual video cropping parameters)
+video_sets:
+  /dlc/0902_BUCTD/0902_BUCTD-nagai-2025-09-02/videos/resized_0430.mp4:
+    crop: 0, 1920, 0, 1260
+  /dlc/0902_BUCTD/0902_BUCTD-nagai-2025-09-02/videos/noflora1.mp4:
+    crop: 0, 1920, 0, 1248
+  /dlc/0902_BUCTD/0902_BUCTD-nagai-2025-09-02/videos/noflora2.mp4:
+    crop: 0, 1920, 0, 1220
+  /dlc/1209_MS/1209_MS-nagai-2026-01-07/videos/resized_color_20250723-111000_PBS_19_1h.mp4:
+    crop: 0, 1920, 0, 1220
+  /dlc/1209_MS/1209_MS-nagai-2026-01-07/videos/resized_color_20250723-121000_PBS_19_2h.mp4:
+    crop: 0, 1920, 0, 1220
+  /dlc/1209_MS/1209_MS-nagai-2026-01-07/videos/resized_color_correction_mask_20250723-150000_5sp_38_1h.mp4:
+    crop: 0, 1920, 0, 1220
+  /dlc/1209_MS/1209_MS-nagai-2026-01-07/videos/resized_color_correction_mask_20250723-160000_5sp_38_2h.mp4:
+    crop: 0, 1920, 0, 1220
+individuals:
+- individual1
+- individual2
+- individual3
+- individual4
+- individual5
+- individual6
+- individual7
+- individual8
+- individual9
+- individual10
+- individual11
+- individual12
+- individual13
+- individual14
+- individual15
+- individual16
+- individual17
+- individual18
+- individual19
+- individual20
+- individual21
+- individual22
+- individual23
+- individual24
+- individual25
+- individual26
+- individual27
+- individual28
+- individual29
+- individual30
+- individual31
+- individual32
+- individual33
+- individual34
+- individual35
+- individual36
+- individual37
+- individual38
+uniquebodyparts: []
+multianimalbodyparts:
+- head
+- body
+- stinger
+bodyparts: MULTI!
+
+# Fraction of video to start/stop when extracting frames for labeling/refinement
+start: 0
+stop: 1
+numframes2pick: 50
+
+# Plotting configuration
+skeleton:
+- - bodypart1
+  - bodypart2
+- - bodypart2
+  - bodypart3
+- - bodypart1
+  - bodypart3
+skeleton_color: black
+pcutoff: 0.6
+dotsize: 12
+alphavalue: 0.7
+colormap: rainbow
+
+# Training,Evaluation and Analysis configuration
+TrainingFraction:
+- 0.7
+iteration: 0
+default_net_type: resnet_50
+default_augmenter: albumentations
+default_track_method: ellipse
+snapshotindex: -1
+detector_snapshotindex: -1
+batch_size: 16
+
+# Cropping Parameters (for analysis and outlier frame detection)
+cropping: false
+#if cropping is true for analysis, then set the values here:
+x1: 0
+x2: 640
+y1: 277
+y2: 624
+
+# Refinement configuration (parameters from annotation dataset configuration also relevant in this stage)
+corner2move2:
+- 50
+- 50
+move2corner: true
+
+# Conversion tables to fine-tune SuperAnimal weights
+SuperAnimalConversionTables:
+detector_batch_size: 1
+```
+
+### R8.03/04時点で使用していたpytorch_config.yamlファイル（BU）
+```yaml filename="pytorch_config.yaml"
+data:
+  bbox_margin: 20
+  colormode: RGB
+  inference:
+    normalize_images: true
+    auto_padding:
+      pad_width_divisor: 32
+      pad_height_divisor: 32
+  train:
+    affine:
+      p: 0.5
+      rotation: 30
+      scaling:
+      - 0.5
+      - 1.25
+      translation: 0
+    crop_sampling:
+      width: 448
+      height: 448
+      max_shift: 0.1
+      method: hybrid
+    gaussian_noise: 12.75
+    motion_blur: true
+    normalize_images: true
+device: auto
+inference:
+  multithreading:
+    enabled: true
+    queue_length: 4
+    timeout: 30.0
+  compile:
+    enabled: false
+    backend: inductor
+  autocast:
+    enabled: false
+metadata:
+  project_path: /dlc/0902_BUCTD/ALL
+  pose_config_path: 
+    /dlc/0902_BUCTD/ALL/dlc-models-pytorch/iteration-0/0902_BUCTDSep2-trainset70shuffle1/train/pytorch_config.yaml
+  bodyparts:
+  - head
+  - body
+  - stinger
+  unique_bodyparts: []
+  individuals:
+  - individual1
+  - individual2
+  - individual3
+  - individual4
+  - individual5
+  - individual6
+  - individual7
+  - individual8
+  - individual9
+  - individual10
+  - individual11
+  - individual12
+  - individual13
+  - individual14
+  - individual15
+  - individual16
+  - individual17
+  - individual18
+  - individual19
+  - individual20
+  - individual21
+  - individual22
+  - individual23
+  - individual24
+  - individual25
+  - individual26
+  - individual27
+  - individual28
+  - individual29
+  - individual30
+  - individual31
+  - individual32
+  - individual33
+  - individual34
+  - individual35
+  - individual36
+  - individual37
+  - individual38
+  with_identity: false
+method: bu
+model:
+  backbone:
+    type: HRNet
+    model_name: hrnet_w48
+    freeze_bn_stats: false
+    freeze_bn_weights: false
+    interpolate_branches: true
+    increased_channel_count: false
+  backbone_output_channels: 720
+  heads:
+    bodypart:
+      type: DEKRHead
+      weight_init: dekr
+      target_generator:
+        type: DEKRGenerator
+        num_joints: 3
+        pos_dist_thresh: 17
+        bg_weight: 0.1
+      criterion:
+        heatmap:
+          type: DEKRHeatmapLoss
+          weight: 1
+        offset:
+          type: DEKROffsetLoss
+          weight: 0.03
+      predictor:
+        type: DEKRPredictor
+        apply_sigmoid: false
+        use_heatmap: false
+        clip_scores: true
+        num_animals: 38
+        keypoint_score_type: combined
+        max_absorb_distance: 75
+        nms_threshold: 0.05
+        apply_pose_nms: true
+      heatmap_config:
+        channels:
+        - 720
+        - 48
+        - 4
+        num_blocks: 1
+        dilation_rate: 1
+        final_conv_kernel: 1
+      offset_config:
+        channels:
+        - 720
+        - 45
+        - 3
+        num_offset_per_kpt: 15
+        num_blocks: 2
+        dilation_rate: 1
+        final_conv_kernel: 1
+net_type: dekr_w48
+runner:
+  type: PoseTrainingRunner
+  gpus:
+  key_metric: test.mAP
+  key_metric_asc: true
+  eval_interval: 10
+  optimizer:
+    type: AdamW
+    params:
+      lr: 0.0005
+  scheduler:
+    type: LRListScheduler
+    params:
+      lr_list:
+      - - 0.0001
+      - - 1e-05
+      milestones:
+      - 90
+      - 120
+  snapshots:
+    max_snapshots: 5
+    save_epochs: 25
+    save_optimizer_state: false
+train_settings:
+  batch_size: 8
+  dataloader_workers: 0
+  dataloader_pin_memory: false
+  display_iters: 500
+  epochs: 200
+  seed: 42
+with_center_keypoints: true
+```
+### R8.03/04時点で使用していたpytorch_config.yamlファイル（CTD）
+```yaml
+data:
+  bbox_margin: 25
+  colormode: RGB
+  inference:
+    normalize_images: true
+    top_down_crop:
+      width: 256
+      height: 256
+      crop_with_context: false
+  train:
+    affine:
+      p: 0.5
+      rotation: 30
+      scaling:
+      - 1.0
+      - 1.0
+      translation: 0
+    gaussian_noise: 12.75
+    motion_blur: true
+    normalize_images: true
+    top_down_crop:
+      width: 256
+      height: 256
+      crop_with_context: false
+  gen_sampling:
+    keypoint_sigmas: 0.1
+device: auto
+inference:
+  multithreading:
+    enabled: true
+    queue_length: 4
+    timeout: 30.0
+  compile:
+    enabled: false
+    backend: inductor
+  autocast:
+    enabled: false
+  conditions:
+    shuffle: 1
+    snapshot: snapshot-best-400.pt
+metadata:
+  project_path: /dlc/0902_BUCTD/ALL
+  pose_config_path: 
+    /dlc/0902_BUCTD/ALL/dlc-models-pytorch/iteration-0/0902_BUCTDSep2-trainset70shuffle2/train/pytorch_config.yaml
+  bodyparts:
+  - head
+  - body
+  - stinger
+  unique_bodyparts: []
+  individuals:
+  - individual1
+  - individual2
+  - individual3
+  - individual4
+  - individual5
+  - individual6
+  - individual7
+  - individual8
+  - individual9
+  - individual10
+  - individual11
+  - individual12
+  - individual13
+  - individual14
+  - individual15
+  - individual16
+  - individual17
+  - individual18
+  - individual19
+  - individual20
+  - individual21
+  - individual22
+  - individual23
+  - individual24
+  - individual25
+  - individual26
+  - individual27
+  - individual28
+  - individual29
+  - individual30
+  - individual31
+  - individual32
+  - individual33
+  - individual34
+  - individual35
+  - individual36
+  - individual37
+  - individual38
+  with_identity: false
+method: ctd
+model:
+  backbone:
+    type: HRNetCoAM
+    base_model_name: hrnet_w32
+    pretrained: true
+    freeze_bn_stats: false
+    freeze_bn_weights: false
+    coam_modules:
+    - 2
+    channel_att_only: false
+    att_heads: 1
+    kpt_encoder:
+      type: StackedKeypointEncoder
+      num_joints: 3
+      kernel_size:
+      - 15
+      - 15
+    img_size:
+    - 256
+    - 256
+  backbone_output_channels: 32
+  heads:
+    bodypart:
+      type: HeatmapHead
+      weight_init: normal
+      predictor:
+        type: HeatmapPredictor
+        apply_sigmoid: false
+        clip_scores: true
+        location_refinement: true
+        locref_std: 7.2801
+      target_generator:
+        type: HeatmapGaussianGenerator
+        num_heatmaps: 3
+        pos_dist_thresh: 17
+        heatmap_mode: KEYPOINT
+        generate_locref: true
+        locref_std: 7.2801
+      criterion:
+        heatmap:
+          type: WeightedMSECriterion
+          weight: 1.0
+        locref:
+          type: WeightedHuberCriterion
+          weight: 0.05
+      heatmap_config:
+        channels:
+        - 32
+        kernel_size: []
+        strides: []
+        final_conv:
+          out_channels: 3
+          kernel_size: 1
+      locref_config:
+        channels:
+        - 32
+        kernel_size: []
+        strides: []
+        final_conv:
+          out_channels: 6
+          kernel_size: 1
+net_type: ctd_coam_w32
+runner:
+  type: PoseTrainingRunner
+  gpus:
+  key_metric: test.mAP
+  key_metric_asc: true
+  eval_interval: 10
+  optimizer:
+    type: AdamW
+    params:
+      lr: 0.0001
+  scheduler:
+    type: LRListScheduler
+    params:
+      lr_list:
+      - - 1e-05
+      - - 1e-06
+      milestones:
+      - 160
+      - 190
+  snapshots:
+    max_snapshots: 5
+    save_epochs: 25
+    save_optimizer_state: false
+train_settings:
+  batch_size: 8
+  dataloader_workers: 0
+  dataloader_pin_memory: false
+  display_iters: 500
+  epochs: 200
+  seed: 42
+```
+
+### R8.03/04時点で使用していたinferance_cfg.yamlファイル
+```yaml filename="inferance_cfg.yaml"
+boundingboxslack: 0
+iou_threshold: 0.6
+max_age: 1
+method: m1
+min_hits: 1
+minimalnumberofconnections: 1
+pafthreshold: 0.1
+pcutoff: 0.1
+topktoretain: 38
+variant: 0
+withid: false
+```

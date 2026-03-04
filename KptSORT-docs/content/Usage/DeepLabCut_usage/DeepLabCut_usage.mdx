@@ -1,0 +1,147 @@
+import { Callout, Steps, Cards, FileTree } from 'nextra/components'
+import { DLCStructure } from "../../../components/DLCStructure"
+
+# Keypoint解析
+
+## スクリプト例
+```python
+import numpy
+import requests
+import shutil
+from io import BytesIO
+from pathlib import Path
+from zipfile import ZipFile
+import deeplabcut
+import deeplabcut.pose_estimation_pytorch as dlc_torch
+import deeplabcut.utils.auxiliaryfunctions as auxiliaryfunctions
+import matplotlib.pyplot as plt
+import numpy as np
+import sys
+
+BU_SHUFFLE = 1
+CTD_SHUFFLE = 2
+
+project_name = "1209_MS"
+path_project = f"/dlc/{project_name}/"
+config = f"{path_project}/config.yaml"
+deeplabcut.create_new_project(project_name, "nagai", [f"/dlc/{project_name}/11105SP_29_1.mp4"], working_directory=f"/dlc/{project_name}", copy_videos=True, multianimal=True)
+
+cfg = auxiliaryfunctions.read_config(config)
+train_frac = cfg["TrainingFraction"]
+print(f"Using {int(100 * train_frac)}% of the data in the training set.")
+
+num_images = 199
+train_images = int(train_frac * num_images)
+
+seed = 0
+rng = np.random.default_rng(seed)
+
+train_indices = rng.choice(num_images, size=train_images, replace=False, shuffle=False).tolist()
+test_indices = [idx for idx in range(num_images) if idx not in train_indices]
+
+deeplabcut.extract_frames(config, mode='automatic', algo='kmeans', userfeedback=False, crop=False, videos_list=[
+    "/dlc/0902_BUCTD/0902_BUCTD-nagai-2025-09-02/videos/noflora2.mp4"
+])
+
+
+deeplabcut.create_multianimaltraining_dataset(config, Shuffles=[BU_SHUFFLE], trainIndices=[train_indices], testIndices=[test_indices], net_type="dekr_w48", engine=deeplabcut.Engine.PYTORCH, userfeedback=False)
+deeplabcut.train_network(config, shuffle=BU_SHUFFLE, epochs=5000)
+
+deeplabcut.create_training_dataset_from_existing_split(config, from_shuffle=BU_SHUFFLE, shuffles=[CTD_SHUFFLE], net_type="ctd_coam_w32", engine=deeplabcut.Engine.PYTORCH, ctd_conditions=(BU_SHUFFLE, "snapshot-best-400"))
+deeplabcut.train_network(config, shuffle=CTD_SHUFFLE)
+
+VIDEO = "/dlc/0902_BUCTD/ALL/videos/1110PBS_29_1/1110PBS_29_1.mp4"
+
+deeplabcut.analyze_videos(config, [VIDEO], shuffle=BU_SHUFFLE, save_as_csv=True, destfolder="/dlc/0902_BUCTD/ALL/videos/11105SP_29_1/BU")
+deeplabcut.analyze_videos(config, [VIDEO], shuffle=CTD_SHUFFLE, save_as_csv=True, ctd_tracking=False, n_tracks=29, destfolder="/dlc/0902_BUCTD/ALL/videos/11105SP_29_1/CTD")
+```
+<Callout type="info">
+解析には時間がかかるため，各行をコメントアウトし，ステップごとに確認しながら進めるのが良い．
+</Callout>
+
+## 概要
+
+このスクリプトは，データセットの分割，学習データの生成，ネットワークの訓練，そして最終的な動画からの座標抽出までの一連のパイプラインを自動化する．特にBUモデルで個体の部位を検出し，その結果を元にCTDモデルで詳細な関連付けを行う構成となっている．
+
+## 定数と初期設定
+
+*   **BU_SHUFFLE = 1**: Bottom-Up方式の学習用シャッフル番号．
+*   **CTD_SHUFFLE = 2**: Context-To-Detail方式の学習用シャッフル番号．
+*   **config**: DLCプロジェクトの `config.yaml` へのパス．
+*   **net_type**: BUには `dekr_w48`，CTDには `ctd_coam_w32` を使用する．
+
+## プロジェクトの新規作成
+`deeplabcut.create_new_project` を呼び出し，解析の基盤となるディレクトリ構造を生成する．
+*   **引数構成**: 
+    *   `videos`: 動画ファイルのパスをリストで指定する．
+    *   `multianimal=True`: 複数個体の同時追跡を有効化する．
+    *   `copy_videos=True`: 指定した動画をプロジェクトディレクトリ内へコピーする．
+
+## 学習プロセス
+
+モデルの精度を最大化するため，以下のステップで学習が進行する．
+
+<Steps>
+### データセットの分割
+全199枚の画像から， `config.yaml` に定義された `TrainingFraction` に基づいて学習用とテスト用のインデックスを生成する．
+*   **アルゴリズム**: `np.random.default_rng(seed=0)` を用いて，再現性のあるランダムサンプリングを実行する． `rng.choice` により重複なしで学習用画像を抽出し，残りをテスト用とする．
+
+### フレームの抽出
+`deeplabcut.extract_frames` を呼び出し，指定された動画（ `noflora2.mp4` ）から学習用のフレームを自動的に抽出する．クラスタリングアルゴリズム（ `kmeans` ）を使用して，バリエーション豊かなフレームを選択する．
+
+### BUネットワークの構築と学習
+Bottom-Up方式のトレーニングデータセットを作成し，学習を開始する．
+*   **関数**: `create_multianimaltraining_dataset` を実行し，エンジンに `PYTORCH` を指定する．
+*   **学習**: `train_network` により，5000エポックを目標にネットワークを訓練する．
+
+### CTDネットワークの構築と学習
+BUモデルの学習成果を引き継ぎ，CTDモデルを構築する．
+*   **関数**: `create_training_dataset_from_existing_split` を使用し， `from_shuffle=BU_SHUFFLE` を指定することで既存のデータ分割を再利用する．
+*   **条件**: `ctd_conditions` 引数により，BUモデルのベストスナップショット（ `snapshot-best-400` ）を関連付けの基準として設定する．
+</Steps>
+
+## 動画解析
+
+学習済みモデルを使用して，未知の動画からミツバチの座標データを抽出する．
+
+*   **analyze_videos (BU)**:
+    BUモデルを用いて個体の各部位を検出する．結果は `destfolder`（ `/BU` ）にCSV形式で保存される．
+*   **analyze_videos (CTD)**:
+    CTDモデルを用いて，個体の関連付けを含む詳細な解析を行う．
+    *   `n_tracks=29`: 解析対象の動画内に存在する個体数を明示的に指定する．
+    *   `ctd_tracking=False`: 本スクリプトではCTDベースのトラッキングをオフにし，座標抽出に専念する設定となっている．
+
+<Callout type="warning">
+後続の[`tracking.py`](/Scripts/tracking.py) での処理のため，`save_as_csv=True`を指定し，解析結果をCSVとして保存する．
+</Callout>
+
+<DLCStructure highlights={["1110PBS_29_1DLC_DekrW48_0902_BUCTDSep2shuffle1_snapshot_best-750_full.pickle","1110PBS_29_1DLC_CtdCoamW32_0902_BUCTDSep2shuffle2_snapshot_best-20_el.csv"]} />
+
+## 覚えておくとよい関数
+詳細はドキュメントを参照すること．<br/>
+https://deeplabcut.github.io/DeepLabCut/docs/maDLC_UserGuide.html
+https://deeplabcut.github.io/DeepLabCut/docs/HelperFunctions.html
+
+### `deeplabcut.add_new_videos`
+* 既存のプロジェクトに新しいビデオファイルを追加する関数である．
+* `copy_videos=True` を指定することで，ビデオファイルをプロジェクト内の `videos` フォルダにコピーして管理することができる．これにより，元のファイルが移動・削除されてもプロジェクトの整合性が保たれる．
+
+### `deeplabcut.check_labels`
+* ラベル付けしたデータが正しい位置にあるかを確認するための関数である．
+* `visualizeindividuals=True` を設定することで，マルチアニマルプロジェクトにおいて各個体を識別した状態で可視化した画像が `labeled-data` フォルダ内に出力される．学習前にアノテーションのミスがないかチェックするために重要である．
+
+### `deeplabcut.convertcsv2h5`
+* CSV 形式で保存されているラベルデータを，DeepLabCut の学習で標準的に使用される HDF5（.h5）形式に変換する関数である．
+* 外部のツールでアノテーションを行った場合や，手動で CSV を編集した後に実行する必要がある．
+
+### `deeplabcut.analyze_videos_converth5_to_csv`
+* ビデオ解析（`analyze_videos`）によって生成された HDF5 形式の結果ファイルを，閲覧や後処理が容易な CSV 形式に変換する関数である．
+* 指定したディレクトリ内のすべての解析済みデータが対象となる．
+
+### `deeplabcut.create_video_with_all_detections`
+* トラッキング（個体の紐付け）を行う前の，モデルが検出したすべての候補点（Detections）をプロットしたビデオを作成する関数である．
+* 個体構築（Assembly）がうまくいく前の段階で，モデルの純粋な検出精度を確認するために利用される．`plot_bboxes=False` により，バウンディングボックスを表示せずにキーポイントのみを確認できる．
+
+### `deeplabcut.create_labeled_video`
+* 解析結果とトラッキングアルゴリズムを適用した後の，最終的なラベル付きビデオを生成する関数である．
+* `color_by="individual"` を指定することで，トラッキングされた各個体に固有の色が割り当てられ，個体の入れ替わりが発生していないかを目視で確認することができる．

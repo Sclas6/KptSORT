@@ -2,6 +2,16 @@ import { Callout, Steps, FileTree, Cards } from 'nextra/components'
 import { ProjectStructure } from "../../components/ProjectStructure"
 
 # トラッキング
+## 前準備
+<Steps>
+## 巣穴画像を用意する
+[巣穴画像生成](/Usage/BIGv2_usage)に従い，巣穴画像を生成する．
+## DeepLabCutによる解析を行う
+以下ディレクトリに，`BU.pickle`，`CTD.csv`を格納する．
+<ProjectStructure highlights={["BU.pickle"]} />
+
+</Steps>
+## トラッキング
 <Steps>
 ## 仮想環境を有効にする
 ```sh
@@ -12,14 +22,15 @@ source .cv2/bin/activate
 python tracking.py
 ```
 <Callout type="info">
+第一引数に動画名，第二引数にYOLO OBBモデル，第三引数に個体数，第四引数に任意のフレーム数を指定．<br/>
+mode_GTで手動修正モードになる．
 ```python filename="tracking.py" {4} showLineNumbers{303}
 if __name__ == "__main__":
     
     model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     kpdetect("flora1", model, 18, 1000, mode=MODE_GT)
 ```
-第一引数に動画名，第二引数にYOLO OBBモデル，第三引数に個体数，第四引数に任意のフレーム数を指定．<br/>
-mode_GTで手動修正モードになる．
+<br/>
 </Callout>
 ## 結果を確認する
 output/trackers.npzにフレーム数の長さの(個体数, 13)のNdArray配列のリストが保存される．<br/>
