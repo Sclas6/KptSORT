@@ -10,7 +10,7 @@ export default {
     //type: "page"
   },
   Start: {
-    title: "環境構築_TODO",
+    title: "環境構築",
   },
   Usage: {
     title: "使用方法",

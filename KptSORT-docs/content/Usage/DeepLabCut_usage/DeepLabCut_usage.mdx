@@ -1,5 +1,7 @@
 import { Callout, Steps, Cards, FileTree } from 'nextra/components'
 import { DLCStructure } from "../../../components/DLCStructure"
+import { ProjectStructure } from "../../../components/ProjectStructure"
+import { BUILD_ID_FILE } from 'next/dist/shared/lib/constants'
 
 # Keypoint解析
 
@@ -61,12 +63,16 @@ deeplabcut.analyze_videos(config, [VIDEO], shuffle=CTD_SHUFFLE, save_as_csv=True
 
 ## 概要
 
-このスクリプトは，データセットの分割，学習データの生成，ネットワークの訓練，そして最終的な動画からの座標抽出までの一連のパイプラインを自動化する．特にBUモデルで個体の部位を検出し，その結果を元にCTDモデルで詳細な関連付けを行う構成となっている．
+このスクリプトは，データセットの分割，学習データの生成，ネットワークの訓練，そして最終的な動画からの座標抽出までの一連のパイプラインを自動化する．
+特にBUモデルで個体の部位を検出し，その結果を元にCTDモデルで詳細な関連付けを行う構成となっている．
+BUCTDパイプラインに関する詳細は下記を参照すること．
+https://deeplabcut.github.io/DeepLabCut/examples/COLAB/COLAB_BUCTD_and_CTD_tracking.html
+https://openaccess.thecvf.com/content/ICCV2023/papers/Zhou_Rethinking_Pose_Estimation_in_Crowds_Overcoming_the_Detection_Information_Bottleneck_ICCV_2023_paper.pdf
 
 ## 定数と初期設定
 
 *   **BU_SHUFFLE = 1**: Bottom-Up方式の学習用シャッフル番号．
-*   **CTD_SHUFFLE = 2**: Context-To-Detail方式の学習用シャッフル番号．
+*   **CTD_SHUFFLE = 2**: Conditioned Top-Down方式の学習用シャッフル番号．
 *   **config**: DLCプロジェクトの `config.yaml` へのパス．
 *   **net_type**: BUには `dekr_w48`，CTDには `ctd_coam_w32` を使用する．
 
@@ -116,6 +122,11 @@ BUモデルの学習成果を引き継ぎ，CTDモデルを構築する．
 </Callout>
 
 <DLCStructure highlights={["1110PBS_29_1DLC_DekrW48_0902_BUCTDSep2shuffle1_snapshot_best-750_full.pickle","1110PBS_29_1DLC_CtdCoamW32_0902_BUCTDSep2shuffle2_snapshot_best-20_el.csv"]} />
+* `{file_name}DLC_{net_type}_{プロジェクト名}{shuffle(1/2)}_{モデル名}_full.pickle`
+* `{file_name}DLC_{net_type}_{プロジェクト名}{shuffle(1/2)}_{モデル名}_el.csv`
+
+上記の2ファイルを`BU.pickle`，`CTD.csv`に名称変更し，以下ディレクトリに格納する．
+<ProjectStructure highlights={["BU.pickle", "CTD.csv"]} />
 
 ## 覚えておくとよい関数
 詳細はドキュメントを参照すること．<br/>

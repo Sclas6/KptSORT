@@ -3,7 +3,7 @@ export default {
         title: "巣穴画像生成"
     },
     DeepLabCut_usage: {
-        title: "Keypoint解析_TODO"
+        title: "Keypoint解析"
     },
     AssignBeeHive_usage: {
         title: "巣穴解析"
