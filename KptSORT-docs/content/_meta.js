@@ -12,6 +12,9 @@ export default {
   Start: {
     title: "環境構築",
   },
+  Dataset: {
+    title: "データセット_TODO",
+  },
   Usage: {
     title: "使用方法",
   },

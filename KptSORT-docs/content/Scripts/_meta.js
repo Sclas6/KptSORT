@@ -3,19 +3,19 @@ export default {
     "tools": {
         title: "tools"
     },
-    "gitlab-ci.yml": {
+    "gitlab-ci": {
         title: ".gitlab-ci.yml"
     },
-    "analysis.py": {
+    "analysis": {
         title: "analysis.py"
     },
-    "dashboard.py": {
+    "dashboard": {
         title: "dashboard.py"
     },
-    "tracking.py": {
+    "tracking": {
         title: "tracking.py"
     },
-    "train.py": {
+    "train": {
         title: "train.py"
     },
 }

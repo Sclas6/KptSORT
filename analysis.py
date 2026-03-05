@@ -3,7 +3,6 @@ os.chdir("/kpsort")
 from tools.loadpkl_jit import *
 from tools.AssignBeeHive import AssignBeeHive, Hive, Bee, CaringEvent, TrophallaxisEvent
 from tools.AssignBeeHive import BEHAVIOR_CARING, BEHAVIOR_NOTHING, BEHAVIOR_TROPHALLAXIS
-from ultralytics import YOLO
 from tqdm import tqdm
 from tqdm.contrib import tzip
 from numba import njit
@@ -423,7 +422,7 @@ def detect_caring(bee:Bee, hive: AssignBeeHive, img, frame, fps=18):
     return d_caring , id
 
 
-def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, draw_trajectory=False, mode=MODE_AUTO):
+def kpdetect(filename, hivename, n_frames, th=0.75, draw_trajectory=False):
     if not os.path.exists(f"output/{filename}/"):
         os.makedirs(f"output/{filename}/")    
     def _save(hive, img_hive_sam, c, bees: list[Bee], colors, img_tracklets):
@@ -471,7 +470,6 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
     Bee.distances_avg = np.zeros((frames))
     Bee.distances_med = np.zeros((frames))
 
-    nnds = []
     scaling_factor = np.array([1.0 / width, 1.0 / height])
 
     c = 0
@@ -557,10 +555,10 @@ def kpdetect(filename, hivename, model, n_tracks, n_frames, n_bodyparts=3, th=0.
 
 if __name__ == "__main__":
     
-    model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
     #kpdetect("resized_0430", "resized_0430", model, 22, 1000)
     #kpdetect("1110PBS_29_1", "1110_PBS", model, 29, 1000000)
-    kpdetect("resized_0430_10000", "resized_0430", model, 22, 1000, mode=MODE_AUTO, draw_trajectory=True)
+
+    kpdetect("resized_0430_10000", "resized_0430", 1000, draw_trajectory=True)
     #19 20 22
     # 0623: noflora: 20 flora1: 18, flora2: 19
     # 0728: PBS: 23 5SP: 39

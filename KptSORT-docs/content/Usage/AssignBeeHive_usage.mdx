@@ -7,7 +7,12 @@ import { ProjectStructure } from "../../components/ProjectStructure"
 
 <Steps>
 ## 準備
-巣全体が写った基準画像（例： `hive.png` ）を用意し， `sources/` ディレクトリに配置する．
+巣全体が写った基準画像（例： `hive.png` ）を用意する．<br/>
+[segment-anything](https://github.com/facebookresearch/segment-anything)リポジトリから
+[sam_vit_h_4b8939.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)をダウンロードする．<br/>
+以下のディレクトリに格納する．
+<ProjectStructure highlights={["sam_vit_h_4b8939.pth", "{hive_name}.png"]} />
+
 
 ## インスタンスの初期化
 解析スクリプト内で `AssignBeeHive` クラスをインスタンス化する．

@@ -4,11 +4,16 @@ import { ProjectStructure } from "../../components/ProjectStructure"
 # トラッキング
 ## 前準備
 <Steps>
-## 巣穴画像を用意する
-[巣穴画像生成](/Usage/BIGv2_usage)に従い，巣穴画像を生成する．
+## YOLOv12 OBBモデルを用意する
+以下のファイルを参考にYOLOv12 OBBの学習を実行する．
+<ProjectStructure highlights={["train.py", "train2.yaml"]} />
+モデルは以下のディレクトリに格納する．
+<ProjectStructure highlights={["best.pt"]} />
+
 ## DeepLabCutによる解析を行う
+[DeepLabCut](/Usage/DeepLabCut_usage/DeepLabCut_usage)に従い解析を行う．<br/>
 以下ディレクトリに，`BU.pickle`，`CTD.csv`を格納する．
-<ProjectStructure highlights={["BU.pickle"]} />
+<ProjectStructure highlights={["BU.pickle", "CTD.csv"]} />
 
 </Steps>
 ## トラッキング

@@ -2,9 +2,9 @@ import React from 'react'
 import { FileTree } from 'nextra/components'
 
 // スタイル定義
-const highlightStyle = { color: "#991b1b", textDecoration: "none", fontWeight: "bold" };
+const highlightStyle = { color: "#991b1b", fontWeight: "bold" };
 const linkStyleBase = { textDecoration: "underline", cursor: "pointer", display: "inline-flex", alignItems: "baseline", gap: "4px" };
-const linkDefaultColor = { color: "#0070f3" };
+const linkDefaultColor = { };
 
 export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] }) => {
 
@@ -32,10 +32,20 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
     // 判定関数
     const hasH = (names: string[]) => names.some(name => highlights.includes(name));
 
-    // 各階層のファイルリスト定義
+    // --- ファイルリスト定義の最適化 ---
+    
+    // 1. sources/{file_name} 直下のファイル
     const sourcesSubFiles = ["{file_name}.mp4", "BU.pickle", "CTD.csv"];
+    
+    // 2. hives ディレクトリ関連
+    const hiveSubFiles = ["{hive_name}.pickle", "result_{hive_name}.png"];
+    const hivesAll = ["{hive_name}.png", ...hiveSubFiles];
+    
+    // 3. Models ディレクトリ関連
     const modelsFiles = ["best.pt", "sam_vit_h_4b8939.pth"];
-    const sourcesAll = [...sourcesSubFiles, ...modelsFiles];
+    
+    // 4. sources フォルダ全体の展開判定用
+    const sourcesAll = [...sourcesSubFiles, ...hivesAll, ...modelsFiles];
 
     const outputSubFiles = ["{threshould}_{filename}_{frames}.mp4", "bees.pkl", "data_graph.pkl", "gt.txt", "trackers.npz"];
 
@@ -76,13 +86,22 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
                     </FileTree.Folder>
                 </FileTree.Folder>
 
-                {/* sources - BU.pickleが含まれる場合に親も子も開くように修正 */}
+                {/* sources */}
                 <FileTree.Folder name="sources" defaultOpen={hasH(sourcesAll)}>
                     <FileTree.Folder name="{file_name}" defaultOpen={hasH(sourcesSubFiles)}>
                         <FileTree.File name={f("{file_name}.mp4")} />
                         <FileTree.File name={f("BU.pickle")} />
                         <FileTree.File name={f("CTD.csv")} />
                     </FileTree.Folder>
+                    
+                    <FileTree.Folder name="hives" defaultOpen={hasH(hivesAll)}>
+                        <FileTree.File name={f("{hive_name}.png")} />
+                        <FileTree.Folder name="{hive_name}" defaultOpen={hasH(hiveSubFiles)}>
+                            <FileTree.File name={f("{hive_name}.pickle")} />
+                            <FileTree.File name={f("result_{hive_name}.png")} />
+                        </FileTree.Folder>
+                    </FileTree.Folder>
+
                     <FileTree.Folder name="Models" defaultOpen={hasH(modelsFiles)}>
                         <FileTree.File name={f("best.pt")} />
                         <FileTree.File name={f("sam_vit_h_4b8939.pth")} />
@@ -104,6 +123,7 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
                 <FileTree.File name={f("dashboard.py", "/KptSORT/Scripts/dashboard.py")} />
                 <FileTree.File name={f("tracking.py", "/KptSORT/Scripts/tracking.py")} />
                 <FileTree.File name={f("train.py", "/KptSORT/Scripts/train.py")} />
+                <FileTree.File name={f("train2.yaml", "/KptSORT/Scripts/train.py")} />
             </FileTree.Folder>
         </FileTree>
     );

@@ -11,6 +11,16 @@ import { ProjectStructure } from "../../components/ProjectStructure"
 
 このスクリプトは，個体の向きや部位間の距離，時間的な連続性を考慮して行動を定義する．解析結果は `bees.pkl` に保存され，後のダッシュボード表示や統計比較に利用される．
 
+## 前準備
+<Steps>
+## 巣穴画像を用意する
+[巣穴画像生成](/Usage/BIGv2_usage)に従い，巣穴画像を生成する．
+
+## 巣穴解析を実行する
+[巣穴解析](/Usage/AssignBeeHive_usage)に従い，巣穴に一意なIDを付与する．
+
+</Steps>
+
 ## 行動検出アルゴリズムの詳細
 
 特定の生物学的行動を検出するために，以下の処理が行われる．
@@ -54,12 +64,11 @@ import { ProjectStructure } from "../../components/ProjectStructure"
 ```bash
 python analysis.py
 ```
-
 #### 引数の設定
 `if __name__ == "__main__":` ブロック内の `kpdetect` を編集する．
 *   **第一引数**: 動画ファイル名．
 *   **第二引数**: 巣穴定義名．
-*   **第三引数**: 使用するYOLOモデル．
+*   **第三引数**: 解析フレーム数．
 *   **draw_trajectory**: `True` にすると，解析動画に移動軌跡が描画される．
 </Steps>
 
