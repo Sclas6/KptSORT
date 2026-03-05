@@ -1,0 +1,26 @@
+
+## DeepLabCut
+DeepLabCutで用いるデータセットは以下のディレクトリに格納されている．<br/>
+`minelab-dataset\20250000_HoneyBeeColony_永井\DeepLabCut\`<br/>
+DeepLabCutでのアノテーションデータは次の通り定義する．
+* 頭部（Head）
+* 腹部（Body）
+* 針部（Stinger）
+
+また，追加でBodyとStingerの間にAbdomenを追加し，4点を用いることにしたデータセットがある．
+これは以下のディレクトリに格納されている．<br/>
+`minelab-dataset\20250000_HoneyBeeColony_永井\DeepLabCut\4Kpt(Head,Abdomen,Body,Stinger)`
+
+### アノテーション例
+![Annotation Kpt](/annotation_kpt.png)
+
+## Yolov12 OBB
+DeepLabCutで用いるデータセットは以下のディレクトリに格納されている．<br/>
+`minelab-dataset\20250000_HoneyBeeColony_永井\Yolov12 OBB\`<br/>
+OBBについては以下を参照するとよい．<br/>
+https://docs.ultralytics.com/ja/datasets/obb/<br/>
+YOLOは以下の実装を利用する．<br/>
+https://github.com/PrefectSol/ultralytics
+
+### アノテーション例
+![Annotation OBB](/annotation_obb.png)
