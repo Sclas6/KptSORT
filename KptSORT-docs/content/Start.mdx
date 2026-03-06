@@ -3,12 +3,12 @@ import { ProjectStructure } from "../components/ProjectStructure"
 
 # 環境構築
 ## DNNのセットアップ
-以下のURLに従い，DNNをセットアップする<br/>
+以下のURLに従い，DNNをセットアップする．<br/>
 [2025ver_環境構築手順](http://wiki.in.minelab/651e18bcf179f6b61953a557)
 <Callout type="info">
     GPUとCUDAの対応を確認しておくこと．<br/>
     特にRTX PRO 6000 BlackwellとPyTorchの対応に注意する．<br/>
-    DeepLabCutでエラーが出る場合，torch，torchvisionをソースからビルドすると解決する場合がある． 
+    DeepLabCutでエラーが出る場合，torch, torchvisionをソースからビルドすると解決する場合がある． 
 </Callout>
 ### Docker セットアップ
 <Callout type="default">
@@ -36,6 +36,106 @@ docker run -it \
 <Callout type="error">
 	**以後の作業はコンテナ内で行うこと．**
 </Callout>
+
+### Tips
+* aptのソースを以下の通り国内のミラーサーバに変更すると速度が上がる．
+```yaml filename="/etc/apt/sources.list.d/ubuntu.sources"
+Types: deb
+URIs: https://ftp.udx.icscoe.jp/Linux/ubuntu/
+Suites: noble noble-updates noble-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.ubuntu.com/ubuntu/
+Suites: noble-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+```
+* 次のWarningが発生する場合，NVIDIAの提供するDockerイメージにおいてKeyringの更新が追い付いていない．<br/>
+手動で更新する．
+```sh
+W: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/InRelease: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg), see the DEPRECATION section in apt-key(8) for details.
+```
+<Steps>
+#### 以下のURLからgpgファイルをダウンロードする
+https://developer.download.nvidia.com/compute/cuda/repos/
+```sh
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-archive-keyring.gpg
+```
+<Callout type="warning">
+	R8現在Ubuntu24.04を利用しているが，都度，最新版を利用する．
+</Callout>
+#### gpgファイルを適当な場所に移動する 
+```sh
+mv cuda-archive-keyring.gpg /etc/apt/trusted.gpg.d/
+```
+#### sourcesリストを更新する
+```sh
+nano /etc/apt/sources.list.d/cuda.list
+```
+```yaml filename="/etc/apt/sources.list.d/cuda.list"
+deb [signed-by=/etc/apt/trusted.gpg.d/cuda-archive-keyring.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /
+```
+#### Warningが消えることを確認する
+```sh
+apt update
+```
+</Steps>
+* `nvidia-smi`が通らない場合
+	* 再起動してみる．
+	* コンテナ外からも`nvidia-smi`が通らない場合．
+		* http://wiki.in.minelab/651e1edbf179f6b61953aa90
+		* https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+		* ↑このへんを参考に頑張る．
+	* コンテナ内からできない場合．<br/>
+		* `--gpus all`オプションがついているか確かめる．
+		* 適切なCountainer Imageを利用しているか確かめる．
+		* `/etc/nvidia-container-runtime/config.toml`内の`no-cgroups = true`をfalseにする（コンテナ外）．
+		```toml filename="/etc/nvidia-container-runtime/config.toml" {13}
+			#accept-nvidia-visible-devices-as-volume-mounts = false
+			#accept-nvidia-visible-devices-envvar-when-unprivileged = true
+			disable-require = false
+			supported-driver-capabilities = "compat32,compute,display,graphics,ngx,utility,video"
+			#swarm-resource = "DOCKER_RESOURCE_GPU"
+
+			[nvidia-container-cli]
+			#debug = "/var/log/nvidia-container-toolkit.log"
+			environment = []
+			#ldcache = "/etc/ld.so.cache"
+			ldconfig = "@/sbin/ldconfig.real"
+			load-kmods = true
+			no-cgroups = false
+			#path = "/usr/bin/nvidia-container-cli"
+			#root = "/run/nvidia/driver"
+			#user = "root:video"
+
+			[nvidia-container-runtime]
+			#debug = "/var/log/nvidia-container-runtime.log"
+			log-level = "info"
+			mode = "auto"
+			runtimes = ["docker-runc", "runc", "crun"]
+
+			[nvidia-container-runtime.modes]
+
+			[nvidia-container-runtime.modes.cdi]
+			annotation-prefixes = ["cdi.k8s.io/"]
+			default-kind = "nvidia.com/gpu"
+			spec-dirs = ["/etc/cdi", "/var/run/cdi"]
+
+			[nvidia-container-runtime.modes.csv]
+			mount-spec-path = "/etc/nvidia-container-runtime/host-files-for-container.d"
+
+			[nvidia-container-runtime.modes.legacy]
+			cuda-compat-mode = "ldconfig"
+
+			[nvidia-container-runtime-hook]
+			path = "nvidia-container-runtime-hook"
+			skip-mode-detection = false
+
+			[nvidia-ctk]
+			path = "nvidia-ctk"
+		```
 
 ## トラッキング・行動分類
 <ProjectStructure

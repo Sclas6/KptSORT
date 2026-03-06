@@ -4,7 +4,7 @@ import { FileTree } from 'nextra/components'
 // スタイル定義
 const highlightStyle = { color: "#991b1b", fontWeight: "bold" };
 const linkStyleBase = { textDecoration: "underline", cursor: "pointer", display: "inline-flex", alignItems: "baseline", gap: "4px" };
-const linkDefaultColor = { };
+const linkDefaultColor = {};
 
 export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] }) => {
 
@@ -33,17 +33,17 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
     const hasH = (names: string[]) => names.some(name => highlights.includes(name));
 
     // --- ファイルリスト定義の最適化 ---
-    
+
     // 1. sources/{file_name} 直下のファイル
     const sourcesSubFiles = ["{file_name}.mp4", "BU.pickle", "CTD.csv"];
-    
+
     // 2. hives ディレクトリ関連
     const hiveSubFiles = ["{hive_name}.pickle", "result_{hive_name}.png"];
     const hivesAll = ["{hive_name}.png", ...hiveSubFiles];
-    
+
     // 3. Models ディレクトリ関連
     const modelsFiles = ["best.pt", "sam_vit_h_4b8939.pth"];
-    
+
     // 4. sources フォルダ全体の展開判定用
     const sourcesAll = [...sourcesSubFiles, ...hivesAll, ...modelsFiles];
 
@@ -93,7 +93,7 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
                         <FileTree.File name={f("BU.pickle")} />
                         <FileTree.File name={f("CTD.csv")} />
                     </FileTree.Folder>
-                    
+
                     <FileTree.Folder name="hives" defaultOpen={hasH(hivesAll)}>
                         <FileTree.File name={f("{hive_name}.png")} />
                         <FileTree.Folder name="{hive_name}" defaultOpen={hasH(hiveSubFiles)}>
@@ -110,20 +110,20 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
 
                 {/* tools */}
                 <FileTree.Folder name="tools" defaultOpen={hasH(["AssignBeeHive.py", "calk_oks.py", "generate_graph.py", "kpsort.py", "loadpkl_jit.py"])}>
-                    <FileTree.File name={f("AssignBeeHive.py", "/KptSORT/Scripts/tools/AssignBeeHive.py")} />
-                    <FileTree.File name={f("calk_oks.py", "/KptSORT/Scripts/tools/calk_oks.py")} />
-                    <FileTree.File name={f("generate_graph.py", "/KptSORT/Scripts/tools/generate_graph.py")} />
-                    <FileTree.File name={f("kpsort.py", "/KptSORT/Scripts/tools/kpsort.py")} />
-                    <FileTree.File name={f("loadpkl_jit.py", "/KptSORT/Scripts/tools/loadpkl_jit.py")} />
+                    <FileTree.File name={f("AssignBeeHive.py", "/KptSORT/Scripts/tools/AssignBeeHive")} />
+                    <FileTree.File name={f("calk_oks.py", "/KptSORT/Scripts/tools/calk_oks")} />
+                    <FileTree.File name={f("generate_graph.py", "/KptSORT/Scripts/tools/generate_graph")} />
+                    <FileTree.File name={f("kpsort.py", "/KptSORT/Scripts/tools/kpsort")} />
+                    <FileTree.File name={f("loadpkl_jit.py", "/KptSORT/Scripts/tools/loadpkl_jit")} />
                 </FileTree.Folder>
 
                 <FileTree.File name={f(".gitignore")} />
-                <FileTree.File name={f(".gitlab-ci.yml", "/KptSORT/Scripts/gitlab-ci.yml")} />
-                <FileTree.File name={f("analysis.py", "/KptSORT/Scripts/analysis.py")} />
-                <FileTree.File name={f("dashboard.py", "/KptSORT/Scripts/dashboard.py")} />
-                <FileTree.File name={f("tracking.py", "/KptSORT/Scripts/tracking.py")} />
-                <FileTree.File name={f("train.py", "/KptSORT/Scripts/train.py")} />
-                <FileTree.File name={f("train2.yaml", "/KptSORT/Scripts/train.py")} />
+                <FileTree.File name={f(".gitlab-ci.yml", "/KptSORT/Scripts/gitlab-ci")} />
+                <FileTree.File name={f("analysis.py", "/KptSORT/Scripts/analysis")} />
+                <FileTree.File name={f("dashboard.py", "/KptSORT/Scripts/dashboard")} />
+                <FileTree.File name={f("tracking.py", "/KptSORT/Scripts/tracking")} />
+                <FileTree.File name={f("train.py", "/KptSORT/Scripts/train")} />
+                <FileTree.File name={f("train2.yaml", "/KptSORT/Scripts/train")} />
             </FileTree.Folder>
         </FileTree>
     );
