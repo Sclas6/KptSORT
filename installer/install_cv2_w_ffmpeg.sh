@@ -9,8 +9,6 @@ pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https
 pip install -r requirements.txt
 pip uninstall -y opencv-python
 
-apt update && apt install -y gcc g++ make cmake git nasm python3.11-venv python3.11-dev pkg-config curl
-
 export OPENH_264_VER="2.5.1"
 curl -LO https://github.com/cisco/openh264/archive/refs/tags/${OPENH_264_VER}.tar.gz \
   && tar -xvzf ${OPENH_264_VER}.tar.gz \
