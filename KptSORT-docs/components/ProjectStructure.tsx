@@ -57,12 +57,12 @@ export const ProjectStructure = ({ highlights = [] }: { highlights?: string[] })
                 <FileTree.Folder name="datasets" defaultOpen={hasH(["train", "val"])}>
                     <FileTree.Folder name="datasets" defaultOpen={hasH(["train", "val"])}>
                         <FileTree.Folder name="images">
-                            <FileTree.File name={f("train")} />
-                            <FileTree.File name={f("val")} />
+                            <FileTree.Folder name={f("train")} >{""}</FileTree.Folder>
+                            <FileTree.Folder name={f("val")} >{""}</FileTree.Folder>
                         </FileTree.Folder>
                         <FileTree.Folder name="labels">
-                            <FileTree.File name={f("train")} />
-                            <FileTree.File name={f("val")} />
+                            <FileTree.Folder name={f("train")}>{""}</FileTree.Folder>
+                            <FileTree.Folder name={f("val")} >{""}</FileTree.Folder>
                         </FileTree.Folder>
                     </FileTree.Folder>
                 </FileTree.Folder>
