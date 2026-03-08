@@ -18,6 +18,7 @@ curl -LO https://github.com/cisco/openh264/archive/refs/tags/${OPENH_264_VER}.ta
 cd ../
 
 export FFMPEG_VER="n4.3.9"
+export PKG_CONFIG_PATH="${VIRTUAL_ENV}/lib/pkgconfig:${PKG_CONFIG_PATH}"
 curl -LO https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VER}.tar.gz \
   && tar -xvzf ${FFMPEG_VER}.tar.gz \
   && cd FFmpeg-${FFMPEG_VER} \
