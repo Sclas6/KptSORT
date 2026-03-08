@@ -3,6 +3,7 @@
 __pycache__/
 sources/*
 datasets/*
+!output/
 output/*
 result/*
 runs/*
