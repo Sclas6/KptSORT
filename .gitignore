@@ -24,6 +24,10 @@ debug_frames/*
 !debug_frames/.gitkeep
 result/*
 runs/*
+bees/
+bees_gt/
+logs/
+old/
 a.py
 test*
 *.pkl
@@ -33,10 +37,6 @@ test*
 *.pth
 *.html
 *.cache
-bees/
-bees_gt/
-logs/
-old/
 
 node_modules/
 .pnp
