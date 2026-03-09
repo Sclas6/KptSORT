@@ -285,6 +285,7 @@ class Sort(object):
                 if specious_score != -1 and score_max >= oks_threshold:
                     self.trackers[specious_score][1] = -1
                     self.trackers[specious_score][0].update(kpts[i, :7])
+                    respowns.append(self.trackers[specious_score][0].id) 
                 elif len(ids_available) != 0:
                     trk = KalmanKptTracker(kpts[i,:], ids_available.pop())
                     self.trackers.append([trk, -1])

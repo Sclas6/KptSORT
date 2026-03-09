@@ -70,6 +70,11 @@ class Bee():
         self.frame_cared.append(frame)
     
     def update(self, kpts, mask, pos, fps, reset=False):
+        if len(self.trajectory_deque) > 0:
+            prev_pos = self.trajectory_deque[-1]
+            dist = np.linalg.norm(np.array(pos) - prev_pos)
+            if dist > 50:
+                reset = True
         self.kpts = kpts
         self.mask = mask
         self.kpts_center = pos
