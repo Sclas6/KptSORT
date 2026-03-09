@@ -54,8 +54,8 @@ def decode_plotly_bdata(bdata_dict):
     unpacked_data = struct.unpack(struct_format, binary_data)
     return np.array(unpacked_data)
 
-dir_1 = f"/kpsort/output/{sys.argv[1]}"
-dir_2 = f"/kpsort/output/{sys.argv[2]}"
+dir_1 = f"output/{sys.argv[1]}"
+dir_2 = f"output/{sys.argv[2]}"
 path_video_1 = get_video(dir_1)
 path_video_2 = get_video(dir_2)
 with open(f"{dir_1}/bees.pkl", "rb") as f:
@@ -70,14 +70,14 @@ cap = cv2.VideoCapture(path_video_2)
 fps_2 = cap.get(cv2.CAP_PROP_FPS)
 frames_2 = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-figs = gen_graphs("/kpsort/test/", bees_1, bees_2, fps_1)
+figs = gen_graphs("test/", bees_1, bees_2, fps_1)
 
 """
-with open("/kpsort/plt_series.pkl", mode="rb") as f:
+with open("plt_series.pkl", mode="rb") as f:
     fig_lines = pickle.load(f)
 """ 
 """
-with open("/kpsort/tools/figs.pkl", mode="rb") as f:
+with open("tools/figs.pkl", mode="rb") as f:
     figs = pickle.load(f)
 """
 
@@ -219,7 +219,7 @@ def update_graph_(index):
 ], [Input(component_id="th", component_property="value", allow_optional=True)],
               prevent_initial_call=True)
 def update_graph(th):
-    figs = gen_graphs("/kpsort/test/", bees_1, bees_2, th)
+    figs = gen_graphs("test/", bees_1, bees_2, th)
     return list(figs.values())[1:]
 
 

@@ -23,7 +23,7 @@ apt -y install apt-fast
 apt-fast update
 
 apt-fast upgrade -y
-apt-fast update && apt-fast install -y gcc g++ make cmake git nasm python3.11-venv python3.11-dev pkg-config curl
+apt-fast update && apt-fast install -y gcc g++ make cmake git nasm python3.11-venv python3.11-dev pkg-config curl libgl1-mesa-dev wget
 
 python3.11 -m venv ../.cv2
 source ../.cv2/bin/activate

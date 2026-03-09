@@ -1,5 +1,5 @@
 import os
-os.chdir("/kpsort")
+os.chdir("/KptSORT")
 from tools.loadpkl_jit import *
 from tools.AssignBeeHive import AssignBeeHive, Hive, Bee, CaringEvent, TrophallaxisEvent
 from tools.AssignBeeHive import BEHAVIOR_CARING, BEHAVIOR_NOTHING, BEHAVIOR_TROPHALLAXIS
@@ -436,7 +436,7 @@ def kpdetect(filename, hivename, n_frames, th=0.75, draw_trajectory=False):
         img_tracklets[np.all(img_tracklets == [0, 0, 0, 255], axis=2), 3] = 0
         cv2.imwrite(f"output/{filename}/img_tracklets.png", img_tracklets)
 
-    data_trackers = np.load(f"/kpsort/output/{filename}/trackers.npz")
+    data_trackers = np.load(f"output/{filename}/trackers.npz")
 
     color_map = iter(gen_random_colors(10000, 334))
 

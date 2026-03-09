@@ -1,5 +1,5 @@
 import os
-os.chdir("/kpsort")
+os.chdir("/KptSORT")
 from tools.kpsort import Sort
 from tools.loadpkl_jit import *
 from ultralytics import YOLO
@@ -302,5 +302,5 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
 
 if __name__ == "__main__":
     
-    model = YOLO("/kpsort/runs/obb/train5/weights/best.pt")
-    kpdetect("flora1", model, 18, 1000, mode=MODE_GT)
+    model = YOLO("sources/Models/best.pt")
+    kpdetect("11105SP_29_1", model, 29, 1000, mode=MODE_GT)

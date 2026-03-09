@@ -267,7 +267,7 @@ class AssignBeeHive():
     def pos2id(self, pos: tuple, img=None):
         name_img = Path(self.path_img).stem
         if img is None:
-            generated_img = cv2.imread(f"/kpsort/sources/hives/{name_img}/result_{name_img}.png")
+            generated_img = cv2.imread(f"sources/hives/{name_img}/result_{name_img}.png")
         else:
             generated_img = img
             

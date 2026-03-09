@@ -96,7 +96,8 @@ curl -LO https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VER}.tar.gz
   && make -j4 \
   && make install \
   && ldconfig
-
+  
+echo 'export LD_LIBRARY_PATH="${VIRTUAL_ENV}/lib:${LD_LIBRARY_PATH}"' >> ~/.bashrc
 cd ../../
 rm *.gz
 rm -rf FFmpeg-n4.3.9 opencv_contrib-4.11.0 opencv-4.11.0 openh264-2.5.1

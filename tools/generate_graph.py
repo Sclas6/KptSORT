@@ -827,16 +827,16 @@ def gen_graphs(path_out: str, bees_1, bees_2, th=0):
     return figs
 
 if __name__ == "__main__":
-    with open("/kpsort/output/flora2/data_graph.pkl", "rb") as f:
+    with open("output/flora2/data_graph.pkl", "rb") as f:
         data_flora = pickle.load(f) 
-    with open("/kpsort/output/noflora2/data_graph.pkl", "rb") as f:
+    with open("output/noflora2/data_graph.pkl", "rb") as f:
         data_noflora = pickle.load(f)
         
     bee_flora = data_flora["bees"]
     bee_noflora = data_noflora["bees"]
 
     #Bee = data["Bee"]
-    #gen_graphs("/kpsort/test/", bee_flora, bee_noflora, th=18)
+    #gen_graphs("test/", bee_flora, bee_noflora, th=18)
     edges = []
     pair_added = []
     for bee in bee_noflora.values():
