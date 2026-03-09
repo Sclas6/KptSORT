@@ -1,5 +1,4 @@
 import os
-os.chdir("/KptSORT")
 from tools.kpsort import Sort
 from tools.loadpkl_jit import *
 from ultralytics import YOLO
@@ -45,6 +44,7 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
     def _save(mot_results, trackers_result, nnds):
         mot_output_path = f"output/{filename}/{filename}.txt"
         kptsort_output_path = f"output/{filename}/trackers.npz"
+
         lines = []
         for row in mot_results:
             line = ",".join([
@@ -61,7 +61,12 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
             f.write("\n".join(lines))
         #with open(kptsort_output_path, mode="wb") as f:
         #    pickle.dump(trackers_result, f)
-        np.savez_compressed(kptsort_output_path, *trackers_result)
+        save_dict = {}
+        for i, data in enumerate(trackers_result):
+            save_dict[f"arr_{i}"] = data["trackers"]
+            save_dict[f"respowns_{i}"] = data["respowns"]
+        np.savez_compressed(kptsort_output_path, **save_dict)
+        #np.savez_compressed(kptsort_output_path, *trackers_result)
         print(f"MOT results saved to: {mot_output_path} and {kptsort_output_path}")
         fig, ax = plt.subplots()
         ax.plot([i for i in range(len(nnds))], nnds)
@@ -101,8 +106,15 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
     resize_rate = 0.5
     debug_dir = "debug_frames"
     if os.path.exists(debug_dir):
-        shutil.rmtree(debug_dir)
-    os.makedirs(debug_dir, exist_ok=True)
+        for item in os.listdir(debug_dir):
+            item_path = os.path.join(debug_dir, item)
+            if item != ".gitkeep":
+                if os.path.isfile(item_path) or os.path.islink(item_path):
+                    os.unlink(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+    else:
+        os.makedirs(debug_dir, exist_ok=True)
 
     data_raw = list()
     for i, _ in tqdm(enumerate(data_pkl), total=len(data_pkl.keys())):
@@ -111,7 +123,7 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
 
 
     c = 0
-    prog = tqdm(desc="Generating", total=n_frames)
+    prog = tqdm(desc="Tracking", total=n_frames)
     while True:
         success, frame = cap.read()
         if c > n_frames:
@@ -270,7 +282,8 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
 
                     print(f"  -> Frame {c} manual correction finalized.\n")
 
-            kpsort_results.append(trackers)
+            kpsort_results.append({"trackers": trackers, "respowns": np.array(list(respowns))
+    })
             for d in trackers:
                 d_int = d.astype(np.int32)
                 if mode == MODE_AUTO:
@@ -303,4 +316,4 @@ def kpdetect(filename, model, n_tracks, n_frames, n_bodyparts=3, th=0.75, mode=M
 if __name__ == "__main__":
     
     model = YOLO("sources/Models/best.pt")
-    kpdetect("11105SP_29_1", model, 29, 1000, mode=MODE_GT)
+    kpdetect("1110PBS_29_2", model, 29, 1000000, mode=MODE_AUTO)

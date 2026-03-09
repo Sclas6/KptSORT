@@ -1,20 +1,30 @@
+import collections
+import itertools
 import os
-os.chdir("/KptSORT")
-from tools.loadpkl_jit import *
-from tools.AssignBeeHive import AssignBeeHive, Hive, Bee, CaringEvent, TrophallaxisEvent
-from tools.AssignBeeHive import BEHAVIOR_CARING, BEHAVIOR_NOTHING, BEHAVIOR_TROPHALLAXIS
+import pickle
+import sys
+from tools import AssignBeeHive as ABH
+sys.modules['AssignBeeHive'] = ABH
+import cv2
+import japanize_matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from numba import njit
+from sklearn.cluster import DBSCAN
 from tqdm import tqdm
 from tqdm.contrib import tzip
-from numba import njit
-import cv2
-import collections
-import numpy as np
-import pickle
-import itertools
-import matplotlib.pyplot as plt
-import japanize_matplotlib
-import seaborn as sns
-from sklearn.cluster import DBSCAN
+from tools.loadpkl_jit import *
+from tools.AssignBeeHive import (
+    AssignBeeHive, 
+    Hive, 
+    Bee, 
+    CaringEvent, 
+    TrophallaxisEvent,
+    BEHAVIOR_CARING, 
+    BEHAVIOR_NOTHING, 
+    BEHAVIOR_TROPHALLAXIS
+)
 
 MODE_GT = 0
 MODE_AUTO = 1
@@ -482,6 +492,7 @@ def kpdetect(filename, hivename, n_frames, th=0.75, draw_trajectory=False):
 
         if success:
             trackers = data_trackers[f"arr_{c}"]
+            respowns = data_trackers[f"respowns_{c}"]
             
             for d in trackers:
                 d_int = d.astype(np.int32)
@@ -504,10 +515,11 @@ def kpdetect(filename, hivename, n_frames, th=0.75, draw_trajectory=False):
                     #bees[d_int[-1]] = Bee(id=d_int[-1], pos=pos_center, length=n_frames - 1)
                     bees[d_int[-1]].feeding_hives = {h: 0 for h in hive.hives.keys()}
                 else:
-                    bees[d_int[-1]].update(d_int[:6], mask, pos_center, fps=fps, reset=False)
+                    is_respawn = (d_int[-1] in respowns)
+                    bees[d_int[-1]].update(d_int[:6], mask, pos_center, fps=fps, reset=is_respawn)
                     if draw_trajectory:
-                        bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
-                        bees[d_int[-1]].tracked_frames += 1
+                            bees[d_int[-1]].draw_trajectory(frame, img_tracklets, colors[d_int[-1]])
+                            bees[d_int[-1]].tracked_frames += 1
                     
             d_exchanges = detect_trophallaxis(bees, trackers, c, scaling_factor, fps=32)
                     
@@ -558,7 +570,7 @@ if __name__ == "__main__":
     #kpdetect("resized_0430", "resized_0430", model, 22, 1000)
     #kpdetect("1110PBS_29_1", "1110_PBS", model, 29, 1000000)
 
-    kpdetect("resized_0430_10000", "resized_0430", 1000, draw_trajectory=True)
+    kpdetect("11105SP_29_1", "11105SP", 1000, draw_trajectory=True)
     #19 20 22
     # 0623: noflora: 20 flora1: 18, flora2: 19
     # 0728: PBS: 23 5SP: 39
