@@ -22,7 +22,8 @@ output/*
 !output/.gitkeep
 debug_frames/*
 !debug_frames/.gitkeep
-result/*
+tools/result/*
+!tools/result/.gitkeep
 runs/*
 bees/
 bees_gt/

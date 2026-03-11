@@ -144,7 +144,7 @@ class Hive:
 class AssignBeeHive():
     def __init__(self, path_img: str, pps:int=64, cnl:int = 3, mode_binarize:int=MODE_DOG, th_size: tuple=(150, 700)):
         self.path_img = path_img
-        self.dir = f"result/pps{pps}_cnl{cnl}_{mode_binarize}/"
+        self.dir = f"/bee/KptSORT/tools/result/pps{pps}_cnl{cnl}_{mode_binarize}/"
         self.mode_binarize = mode_binarize
         self.config_sam = (pps, cnl)
         self.hives = dict()
@@ -167,11 +167,11 @@ class AssignBeeHive():
             fixed = canny
         elif mode == 1:
             fixed = DoG(img, 17, 9)
-        cv2.imwrite(f"out_fixed_{mode}.png", fixed)
+        cv2.imwrite(f"/bee/KptSORT/tools/result/out_fixed_{mode}.png", fixed)
     
     def _optimize_mask(self, pps: int, cnl: int):
         name_img = Path(self.path_img).stem
-        path = f"result/pps{pps}_cnl{cnl}_{self.mode_binarize}/"
+        path = f"/bee/KptSORT/tools/result/pps{pps}_cnl{cnl}_{self.mode_binarize}/"
         img =  cv2.imread(f"{path}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}_.png")
         # BGR
         """for hive in self.hives:
@@ -194,16 +194,16 @@ class AssignBeeHive():
             
     def gen_mask_w_sam(self):
         pps, cnl = self.config_sam
-        img = cv2.imread(f"out_fixed_{self.mode_binarize}.png")
+        img = cv2.imread(f"/bee/KptSORT/tools/result/out_fixed_{self.mode_binarize}.png")
         name_img = Path(self.path_img).stem
         if not os.path.isdir(self.dir):
             os.makedirs(self.dir)
-        if not os.path.exists(f"sources/hives/{name_img}/"):
-            os.makedirs(f"sources/hives/{name_img}/")
+        if not os.path.exists(f"/bee/KptSORT/sources/hives/{name_img}/"):
+            os.makedirs(f"/bee/KptSORT/sources/hives/{name_img}/")
 
         bar_sam = tqdm(total=1, desc="%-15s" % ("Preparing Mask Data"))
         if not os.path.exists(f"{self.dir}result_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}.pickle"):
-            sam = sam_model_registry["default"](checkpoint="sources/Models/sam_vit_h_4b8939.pth")
+            sam = sam_model_registry["default"](checkpoint="/bee/KptSORT/sources/Models/sam_vit_h_4b8939.pth")
             sam.to(device="cuda")
             mask_generator = SamAutomaticMaskGenerator(model=sam, points_per_side=pps, crop_n_layers=cnl)
             masks = mask_generator.generate(img)
@@ -260,7 +260,7 @@ class AssignBeeHive():
             cv2.putText(img_w_ids, str(hive.id), hive.pos, 1, 0.8, (255, 255, 255))
         img_row = cv2.imread(self.path_img)
         h, w, _ = img_row.shape
-        cv2.imwrite(f"sources/hives/{name_img}/result_{name_img}.png", combined_mask_3ch[int((w-h)/2):int((w-h)/2) + h, :])
+        cv2.imwrite(f"/bee/KptSORT/sources/hives/{name_img}/result_{name_img}.png", combined_mask_3ch[int((w-h)/2):int((w-h)/2) + h, :])
         cv2.imwrite(f"{self.dir}bbox_pps{pps}_cnl{cnl}_{self.mode_binarize}_{name_img}.png", img_w_ids)
 
     def gen_mask_w_sam2(self):
@@ -272,7 +272,7 @@ class AssignBeeHive():
     def pos2id(self, pos: tuple, img=None):
         name_img = Path(self.path_img).stem
         if img is None:
-            generated_img = cv2.imread(f"sources/hives/{name_img}/result_{name_img}.png")
+            generated_img = cv2.imread(f"/bee/KptSORT/sources/hives/{name_img}/result_{name_img}.png")
         else:
             generated_img = img
             
