@@ -253,6 +253,16 @@ services:
           bash install_cv2_w_ffmpeg.sh
           cd /bee/KptSORT/
         fi
+
+        ACTIVATE_FILE=".cv2/bin/activate"
+        LD_PATH_LINE='export LD_LIBRARY_PATH=".cv2/lib:/usr/local/cuda/lib64"'
+        if [ -f "$ACTIVATE_FILE" ]; then
+          if ! grep -q "LD_LIBRARY_PATH" "$ACTIVATE_FILE"; then
+            echo -e "\n# Added by Docker entrypoint\n$LD_PATH_LINE" >> "$ACTIVATE_FILE"
+            echo "Updated $ACTIVATE_FILE with LD_LIBRARY_PATH"
+          fi
+        fi
+
         export LD_LIBRARY_PATH=".cv2/lib:/usr/local/cuda/lib64"
         exec /bin/bash
     tty: true
