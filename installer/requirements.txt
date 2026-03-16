@@ -29,7 +29,7 @@ narwhals==2.4.0
 nest-asyncio==1.6.0
 networkx==3.3
 numba==0.61.2
-numpy==1.26.4
+numpy==2.2.6
 nvidia-cublas-cu12==12.9.1.4
 nvidia-cuda-cupti-cu12==12.9.79
 nvidia-cuda-nvrtc-cu12==12.9.86
@@ -63,6 +63,7 @@ scipy==1.16.1
 seaborn==0.13.2
 segment-anything==1.0
 six==1.17.0
+stitching==0.6.1
 sympy==1.13.3
 threadpoolctl==3.6.0
 torch==2.8.0+cu129

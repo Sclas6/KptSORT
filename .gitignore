@@ -24,6 +24,7 @@ debug_frames/*
 !debug_frames/.gitkeep
 tools/result/*
 !tools/result/.gitkeep
+tools/beehive_image_generator/
 runs/*
 bees/
 bees_gt/
